@@ -13,9 +13,13 @@ use App\Http\Controllers\Api\ShopStatusController;
 use App\Http\Controllers\Api\SupportReportController;
 use App\Http\Controllers\ConversionController;
 use App\Http\Middleware\AuthenticateShopifySessionToken;
+use App\Http\Middleware\LimitRequestBodySize;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/conversions', [ConversionController::class, 'track']);
+// Public endpoint for the web pixel (its tracking_secret is visible to anyone): bounded body,
+// per-IP and per-shop throttling (RateLimiter "conversions" in AppServiceProvider).
+Route::post('/conversions', [ConversionController::class, 'track'])
+    ->middleware([LimitRequestBodySize::class.':16', 'throttle:conversions']);
 
 Route::middleware([AuthenticateShopifySessionToken::class])->group(function (): void {
     Route::get('/shop-status', [ShopStatusController::class, 'index']);

@@ -11,7 +11,7 @@ beforeEach(fn () => Queue::fake());
 
 function enumPayload(string $domain, string $secret): array
 {
-    return ['shop_domain' => $domain, 'tracking_secret' => $secret, 'event' => 'page_view'];
+    return ['shop_domain' => $domain, 'tracking_secret' => $secret, 'event' => 'add_to_cart'];
 }
 
 it('answers unknown shops, uninstalled shops and wrong secrets with the same 401', function (): void {

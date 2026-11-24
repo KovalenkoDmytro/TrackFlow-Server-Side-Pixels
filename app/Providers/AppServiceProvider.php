@@ -9,6 +9,9 @@ use App\Contracts\PlatformResolverContract;
 use App\Http\Middleware\ShopifyIframeProtection;
 use App\Services\PlatformResolver;
 use App\Services\Shopify\LoggingApiHelper;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Osiset\ShopifyApp\Contracts\ApiHelper as IApiHelper;
@@ -51,9 +54,27 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IApiHelper::class, LoggingApiHelper::class);
         $this->app->bind(IframeProtection::class, ShopifyIframeProtection::class);
 
+        $this->configureRateLimiting();
+
         $this->guardAgainstUnsupportedShopifyRouteConfig();
         $this->guardAgainstUnsupportedShopifyDevBypass();
         $this->guardAgainstBlankShopifyCredentials();
+    }
+
+    /**
+     * /api/conversions is public: limit it per client IP and per shop domain. Over the limit
+     * the pixel gets 429 and drops the event (it never retries).
+     */
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('conversions', function (Request $request): array {
+            $shop = strtolower(trim((string) $request->input('shop_domain', '')));
+
+            return [
+                Limit::perMinute((int) config('tracking.conversions_rate_limit.per_ip_per_minute', 300))->by('ip:'.$request->ip()),
+                Limit::perMinute((int) config('tracking.conversions_rate_limit.per_shop_per_minute', 3000))->by('shop:'.substr($shop, 0, 255)),
+            ];
+        });
     }
 
     /**

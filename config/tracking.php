@@ -28,6 +28,12 @@ return [
     // Shown in support emails. Falls back to SENTRY_RELEASE, then the deployed git commit.
     'app_version' => env('APP_VERSION', env('SENTRY_RELEASE')),
 
+    // Throttle for the public /api/conversions endpoint (requests per minute).
+    'conversions_rate_limit' => [
+        'per_ip_per_minute' => (int) env('CONVERSIONS_PER_IP_PER_MINUTE', 300),
+        'per_shop_per_minute' => (int) env('CONVERSIONS_PER_SHOP_PER_MINUTE', 3000),
+    ],
+
     'view_item_rate_limit' => [
         'per_ip_attempts' => (int) env('VIEW_ITEM_PER_IP_ATTEMPTS', 60),
         'per_ip_decay_seconds' => (int) env('VIEW_ITEM_PER_IP_DECAY_SECONDS', 300),

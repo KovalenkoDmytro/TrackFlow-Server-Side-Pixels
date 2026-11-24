@@ -67,19 +67,19 @@ final class TrackEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shop_domain' => ['required', 'string'],
-            'tracking_secret' => ['required', 'string'],
-            'event' => ['required', 'string'],
+            'shop_domain' => ['required', 'string', 'max:255'],
+            'tracking_secret' => ['required', 'string', 'max:255'],
+            'event' => ['required', 'string', Rule::enum(TrackingEventType::class)],
             // Null is tolerated for non-monetary events, but a Purchase must carry a real
             // value and currency so it can never be stored/sent as a 0 CAD conversion.
             'value' => ['required_if:event,'.TrackingEventType::Purchase->value, 'nullable', 'numeric', 'min:0', 'max:999999999999999'],
             'currency' => ['required_if:event,'.TrackingEventType::Purchase->value, 'nullable', 'string', 'size:3'],
-            'transaction_id' => ['sometimes', 'nullable', 'string'],
-            'gclid' => ['sometimes', 'nullable', 'string'],
-            'fbp' => ['sometimes', 'nullable', 'string'],
-            'fbc' => ['sometimes', 'nullable', 'string'],
-            'ttclid' => ['sometimes', 'nullable', 'string'],
-            'ga_client_id' => ['sometimes', 'nullable', 'string'],
+            'transaction_id' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'gclid' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'fbp' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'fbc' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'ttclid' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'ga_client_id' => ['sometimes', 'nullable', 'string', 'max:512'],
             'idempotency_key' => ['sometimes', 'nullable', 'string', 'max:255'],
             'event_source_url' => ['sometimes', 'nullable', 'url:https', 'max:2048'],
             'occurred_at' => [
