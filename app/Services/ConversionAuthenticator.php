@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\User;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 /**
@@ -20,6 +19,13 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
  */
 final class ConversionAuthenticator
 {
+    private const string DUMMY_SECRET = '0000000000000000000000000000000000000000000000000000000000000000';
+
+    private static function unauthorized(): UnauthorizedHttpException
+    {
+        return new UnauthorizedHttpException('', 'Unauthorized.');
+    }
+
     /**
      * Resolve and authenticate the shop for an inbound conversion tracking request.
      *
@@ -27,8 +33,9 @@ final class ConversionAuthenticator
      * @param  string  $trackingSecret  The raw secret sent in the request body.
      * @return User The authenticated shop record.
      *
-     * @throws NotFoundHttpException When no shop with the given domain exists.
-     * @throws UnauthorizedHttpException When the tracking secret does not match.
+     * @throws UnauthorizedHttpException The same 401 for an unknown shop, a shop that is not
+     *                                   installed and a wrong secret, so the endpoint cannot be
+     *                                   used to find out which shops use TrackFlow.
      */
     public function authenticate(string $shopDomain, string $trackingSecret): User
     {
@@ -37,11 +44,14 @@ final class ConversionAuthenticator
             ->first();
 
         if (! $shop instanceof User) {
-            throw new NotFoundHttpException('Shop not found.');
+            // Same work as a real comparison so response time does not reveal unknown shops.
+            hash_equals(self::DUMMY_SECRET, $trackingSecret);
+
+            throw self::unauthorized();
         }
 
-        if (! $this->isValidSecret($shop, $trackingSecret)) {
-            throw new UnauthorizedHttpException('', 'Invalid tracking secret.');
+        if (! $this->isValidSecret($shop, $trackingSecret) || blank($shop->password)) {
+            throw self::unauthorized();
         }
 
         return $shop;
