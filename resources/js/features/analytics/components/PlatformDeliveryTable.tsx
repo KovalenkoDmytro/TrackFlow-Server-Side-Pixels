@@ -16,6 +16,10 @@ import {
   Typography,
 } from '@mui/material';
 import type { PlatformDeliveryStat, PlatformDeliveryTotals, PlatformIntegrationState } from '../../../types/api';
+import { DeliveryRateBar } from '../../../components/ui/DeliveryRateBar';
+import { rateOf } from '../../../lib/deliveryRate';
+
+const RATE_TOOLTIP = 'Delivered ÷ eligible. Other account, expired and pending rows are not delivery outcomes and are left out.';
 
 interface PlatformDeliveryTableProps {
   stats: PlatformDeliveryStat[];
@@ -79,7 +83,7 @@ function LastErrorCell({ value, status }: { value: string; status?: 'failed' | '
         overflow: 'hidden',
         textOverflow: expanded ? 'clip' : 'ellipsis',
         wordBreak: 'break-word',
-        maxWidth: 240,
+        maxWidth: 360,
         '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2, borderRadius: 0.5 },
       }}
     >
@@ -114,9 +118,9 @@ export function PlatformDeliveryTable({ stats, totals, loading, platformLabel = 
         </Alert>
       )}
 
-      <TableContainer sx={{ width: '100%', overflowX: 'auto' }}><Table size="small" sx={{ minWidth: { xs: 560, sm: 740 } }}>
+      <TableContainer sx={{ width: '100%', overflowX: 'auto' }}><Table size="small" sx={{ minWidth: { xs: 640, sm: 860 } }}>
         <TableHead>
-          <TableRow sx={{ '& th': { bgcolor: '#f8f9fc', fontWeight: 700, whiteSpace: 'nowrap' } }}>
+          <TableRow>
             <TableCell>Event</TableCell>
             <TableCell align="right">Attempted</TableCell>
             <TableCell align="right">Delivered</TableCell>
@@ -136,6 +140,11 @@ export function PlatformDeliveryTable({ stats, totals, loading, platformLabel = 
                 </Tooltip>
               </TableCell>
             )}
+            <TableCell align="right">
+              <Tooltip title={RATE_TOOLTIP}>
+                <span>Delivery rate</span>
+              </Tooltip>
+            </TableCell>
             <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Last error</TableCell>
           </TableRow>
         </TableHead>
@@ -206,6 +215,9 @@ export function PlatformDeliveryTable({ stats, totals, loading, platformLabel = 
                   </Typography>
                 </TableCell>
               )}
+              <TableCell align="right">
+                <DeliveryRateBar value={rateOf(row)} width={56} />
+              </TableCell>
               <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                 {row.last_error ? (
                   <LastErrorCell value={row.last_error} status={row.last_error_status} />
@@ -219,7 +231,7 @@ export function PlatformDeliveryTable({ stats, totals, loading, platformLabel = 
           ))}
         </TableBody>
         <TableFooter>
-          <TableRow sx={{ bgcolor: '#fafbfe', '& td': { fontWeight: 750 } }}>
+          <TableRow sx={{ bgcolor: '#f7f7f7', '& td': { fontWeight: 650 } }}>
             <TableCell>Total</TableCell>
             <TableCell align="right">
               <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
@@ -255,6 +267,9 @@ export function PlatformDeliveryTable({ stats, totals, loading, platformLabel = 
                 </Typography>
               </TableCell>
             )}
+            <TableCell align="right">
+              <DeliveryRateBar value={rateOf(totals)} width={56} />
+            </TableCell>
             <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }} />
           </TableRow>
         </TableFooter>
