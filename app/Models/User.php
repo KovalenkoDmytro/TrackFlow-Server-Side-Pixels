@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\ShopTokenCipher;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -49,6 +50,18 @@ class User extends Authenticatable implements IShopModel
             'pixel_enabled' => 'boolean',
             'orphaned_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The shopify package keeps the shop's offline access token in `password`. It is stored
+     * encrypted; the package and the app always see plaintext in memory.
+     */
+    protected function password(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => ShopTokenCipher::decrypt($value),
+            set: fn (?string $value) => ShopTokenCipher::encrypt($value),
+        );
     }
 
     protected function trackingSecret(): Attribute
