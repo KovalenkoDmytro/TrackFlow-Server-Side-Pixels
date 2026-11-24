@@ -300,8 +300,7 @@ final class GoogleAdsClient implements ConversionPlatformContract, ReportsPartia
         $now = CarbonImmutable::now();
         $conversionTime = $this->clampConversionTime($data->occurredAt, $now);
 
-        // Only a time ahead of our own clock is a clock-skew signal worth a warning; a time within the
-        // safety margin of "now" is clamped silently (every live upload happens seconds after the event).
+        // Only a time ahead of our own clock is clamped (and logged as clock skew); a past time is sent as is.
         if ($data->occurredAt->getTimestamp() > $now->getTimestamp()) {
             // Browser clocks can run ahead of Google's; the stored event time is left untouched.
             Log::warning('google_ads.conversion_time_clamped', [
@@ -354,17 +353,25 @@ final class GoogleAdsClient implements ConversionPlatformContract, ReportsPartia
     }
 
     /**
-     * Cap the conversion time at now minus the configured safety margin, in UTC.
+     * The conversion time to send, in UTC.
      *
-     * Google rejects conversion times later than its own clock (LATER_THAN_MAXIMUM_DATE),
-     * and the pixel reports the shopper's browser clock, which can run ahead of ours.
+     * Google rejects conversion times later than its own clock (LATER_THAN_MAXIMUM_DATE), and the
+     * pixel reports the shopper's browser clock, which can run ahead of ours. Only a time later than
+     * our "now" is pulled back, to now minus a small margin. Any other time is sent unchanged: live
+     * uploads happen seconds after the event, and moving a real time earlier makes landing-page
+     * events precede their ad click (CONVERSION_PRECEDES_EVENT).
      */
     public function clampConversionTime(\DateTimeInterface $occurredAt, CarbonImmutable $now): CarbonImmutable
     {
-        $maximum = $now->subSeconds((int) config('tracking.google_ads.future_clamp_seconds', 60));
         $occurred = CarbonImmutable::instance($occurredAt);
 
-        return ($occurred->greaterThan($maximum) ? $maximum : $occurred)->utc();
+        if ($occurred->getTimestamp() <= $now->getTimestamp()) {
+            return $occurred->utc();
+        }
+
+        $margin = max(0, (int) config('tracking.google_ads.future_clamp_margin_seconds', 1));
+
+        return $now->subSeconds($margin)->utc();
     }
 
     public function partialFailure(): ?PartialFailure

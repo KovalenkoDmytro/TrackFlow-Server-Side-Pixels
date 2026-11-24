@@ -8,6 +8,7 @@ use App\Models\ConversionActionMapping;
 use App\Models\PlatformIntegration;
 use App\Models\User;
 use App\Services\GoogleAdsClient;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -157,12 +158,12 @@ describe('conversion time clamp', function (): void {
 
     afterEach(fn () => Carbon::setTestNow());
 
-    it('clamps a future event time to now minus 60 seconds in UTC', function (): void {
+    it('clamps a future event time to now minus 1 second in UTC and logs the skew', function (): void {
         Log::spy();
 
         $sent = uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 12:02:00+00:00'));
 
-        expect($sent)->toBe('2026-10-08 11:59:00+00:00');
+        expect($sent)->toBe('2026-10-08 11:59:59+00:00');
 
         Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context): bool {
             return $message === 'google_ads.conversion_time_clamped'
@@ -172,13 +173,32 @@ describe('conversion time clamp', function (): void {
         });
     });
 
-    it('clamps an event time inside the safety margin silently', function (): void {
+    it('clamps an event 1 second in the future to no later than now', function (): void {
+        $sent = uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 12:00:01+00:00'));
+
+        expect($sent)->toBe('2026-10-08 11:59:59+00:00')
+            ->and(CarbonImmutable::parse($sent)->lessThanOrEqualTo(CarbonImmutable::now()))->toBeTrue();
+    });
+
+    it('uses the configured margin for a future event', function (): void {
+        config(['tracking.google_ads.future_clamp_margin_seconds' => 5]);
+
+        expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 12:00:30+00:00')))
+            ->toBe('2026-10-08 11:59:55+00:00');
+    });
+
+    it('sends an event 30 seconds in the past unchanged', function (): void {
         Log::spy();
 
         expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 11:59:30+00:00')))
-            ->toBe('2026-10-08 11:59:00+00:00');
+            ->toBe('2026-10-08 11:59:30+00:00');
 
         Log::shouldNotHaveReceived('warning');
+    });
+
+    it('sends an event 1 second in the past unchanged', function (): void {
+        expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 11:59:59+00:00')))
+            ->toBe('2026-10-08 11:59:59+00:00');
     });
 
     it('leaves a past event time unchanged and does not log', function (): void {
@@ -190,11 +210,11 @@ describe('conversion time clamp', function (): void {
         Log::shouldNotHaveReceived('warning');
     });
 
-    it('leaves an event time exactly at the boundary unchanged and does not log', function (): void {
+    it('sends an event time equal to now unchanged and does not log', function (): void {
         Log::spy();
 
-        expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 11:59:00+00:00')))
-            ->toBe('2026-10-08 11:59:00+00:00');
+        expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 12:00:00+00:00')))
+            ->toBe('2026-10-08 12:00:00+00:00');
 
         Log::shouldNotHaveReceived('warning');
     });
@@ -202,7 +222,7 @@ describe('conversion time clamp', function (): void {
     it('converts a non-UTC offset to the correct UTC instant', function (): void {
         // 07:50 at -05:00 is 12:50 UTC (future) -> clamped; 05:50 at -05:00 is 10:50 UTC (past) -> kept.
         expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 07:50:00-05:00')))
-            ->toBe('2026-10-08 11:59:00+00:00');
+            ->toBe('2026-10-08 11:59:59+00:00');
         expect(uploadAndGetConversionTime(new DateTimeImmutable('2026-10-08 05:50:00-05:00')))
             ->toBe('2026-10-08 10:50:00+00:00');
     });
