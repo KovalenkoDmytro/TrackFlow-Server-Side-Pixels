@@ -60,7 +60,8 @@ export function HealthScoreCard({ overview }: { overview: OverviewResponse }) {
           {noRecent && <Line ok={false}>No events in the last 24 hours</Line>}
           {scored.map((key) => {
             const d = deductionFor(key);
-            const failed = overview.platforms[key].failed;
+            // Open failures only: resolved ones (and sign-in errors before a reconnect) no longer count.
+            const failed = Math.max(0, overview.platforms[key].failed - (overview.platforms[key].resolved_failed ?? 0));
             if (d) return <Line key={key} ok={false}>{platformLabel(key)}: {failed.toLocaleString()} failed, {d.weighted_failure_rate}% weighted (−{d.points})</Line>;
             return <Line key={key} ok>{platformLabel(key)}: {failed > 0 ? `${failed.toLocaleString()} failed, within tolerance` : 'no failed uploads'}</Line>;
           })}

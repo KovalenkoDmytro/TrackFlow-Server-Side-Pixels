@@ -213,7 +213,8 @@ describe('reconnect', function (): void {
         $integration->refresh();
         expect($integration->active)->toBeTrue()
             ->and($integration->last_error)->toBeNull()
-            ->and($integration->last_error_at)->toBeNull();
+            ->and($integration->last_error_at)->toBeNull()
+            ->and($integration->connected_at)->not->toBeNull();
 
         $this->artisan('google-ads:sync-clicks', ['--integration' => $integration->getKey(), '--days' => 1])
             ->expectsOutputToContain('click reports updated')

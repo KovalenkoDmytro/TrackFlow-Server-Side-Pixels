@@ -13,6 +13,7 @@ import { PlatformDeliveryTable } from './components/PlatformDeliveryTable';
 import { DEFAULT_RETENTION_DAYS, PeriodControls, usePeriodState } from './components/PeriodControls';
 import { useAnalytics } from './hooks/useAnalytics';
 import { useShopStatus } from '../home/hooks/useShopStatus';
+import { useResolveIssue } from '../home/hooks/useResolveIssue';
 import { formatRate, rateOf } from '../../lib/deliveryRate';
 import { platformInfo } from '../../lib/platforms';
 import type { AnalyticsResponse, PlatformDeliveryResponse, PlatformDeliveryTotals } from '../../types/api';
@@ -42,6 +43,7 @@ export function PlatformAnalyticsPage() {
   const period = usePeriodState(platform);
   const { data, isFetching, error } = useAnalytics(period.params);
   const shop = useShopStatus();
+  const issueResolution = useResolveIssue();
 
   if (!info || info.comingSoon) {
     return (
@@ -68,7 +70,7 @@ export function PlatformAnalyticsPage() {
       platform === 'google_ads'
         ? { label: 'Skipped', value: skipped.toLocaleString(), caption: `Other account ${totals.other_account.toLocaleString()} · Click too old ${totals.expired.toLocaleString()}` }
         : { label: 'Pending', value: totals.pending.toLocaleString(), caption: 'Waiting for Meta to answer' },
-      { label: 'Failed', value: totals.failed.toLocaleString(), caption: issues.length > 0 ? `${issues.length} issue${issues.length === 1 ? '' : 's'} below` : 'No failures', critical: totals.failed > 0 },
+      { label: 'Failed', value: totals.failed.toLocaleString(), caption: issues.length > 0 ? `${issues.length} issue${issues.length === 1 ? '' : 's'} below` : totals.failed > 0 ? 'No open issues' : 'No failures', critical: totals.failed > 0 },
     ]
     : [
       { label: 'Events with GA4 client ID', value: (counts?.total ?? 0).toLocaleString() },
@@ -94,7 +96,7 @@ export function PlatformAnalyticsPage() {
 
       {!isFetching && issues.length > 0 && (
         <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
-          {issues.map((issue) => <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} context="platform" />)}
+          {issues.map((issue) => <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} context="platform" onResolve={() => issueResolution.resolve({ platform: issue.platform, code: issue.code })} />)}
         </Box>
       )}
 
@@ -139,6 +141,7 @@ export function PlatformAnalyticsPage() {
       <HowItWorks>
         {(HOW_IT_WORKS[platform] ?? []).map((p) => <Typography key={p} variant="body2" component="p">{p}</Typography>)}
       </HowItWorks>
+      {issueResolution.snackbar}
     </PageLayout>
   );
 }

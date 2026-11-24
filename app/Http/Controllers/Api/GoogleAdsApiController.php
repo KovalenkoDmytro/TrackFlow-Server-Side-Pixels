@@ -163,6 +163,7 @@ final class GoogleAdsApiController extends Controller
                 'last_error' => null,
                 'last_error_at' => null,
                 'credentials' => json_encode($credentials),
+                'connected_at' => now(),
                 'settings' => [],
             ],
         );

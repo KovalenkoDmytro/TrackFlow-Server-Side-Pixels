@@ -143,6 +143,7 @@ final class MetaApiController extends Controller
                     [
                         'active' => true,
                         'credentials' => json_encode($credentials),
+                        'connected_at' => now(),
                         'settings' => [],
                     ],
                 );

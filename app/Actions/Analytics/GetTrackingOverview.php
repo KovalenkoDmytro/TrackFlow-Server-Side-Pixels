@@ -9,6 +9,7 @@ use App\Models\PlatformDelivery;
 use App\Models\TrackingEvent;
 use App\Models\User;
 use App\Support\Analytics\DeliveryRate;
+use App\Support\Analytics\FailureCutoffs;
 use App\Support\Analytics\HealthScore;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
@@ -18,6 +19,11 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * Builds the home page overview: health score, headline KPIs, daily series for
  * sparklines (from real stored events, zero-filled), per-platform delivery and
  * grouped delivery issues. Read-only.
+ *
+ * Resolved failures (and sign-in failures from before a reconnect) are left out of the
+ * issue cards and the health score only. Raw delivered / failed totals, delivery rates and
+ * the daily series stay unchanged: those uploads really were rejected by the platform.
+ * resolved_failed reports how many of the failed uploads are no longer counted.
  */
 final class GetTrackingOverview
 {
@@ -89,9 +95,13 @@ final class GetTrackingOverview
             );
         }
 
+        $cutoffs = FailureCutoffs::forShop($shop);
+        $ignored = $this->deliveryIssues->ignoredFailures($shop, $start, $end, self::DELIVERY_PLATFORMS, $cutoffs);
+
         $platforms = [];
         $scoredStats = [];
         $sum = ['attempted' => 0, 'delivered' => 0, 'failed' => 0, 'pending' => 0, 'other_account' => 0, 'expired' => 0];
+        $resolvedFailedTotal = 0;
 
         foreach (self::DELIVERY_PLATFORMS as $platform) {
             $stats = $this->deliveryStats->handle($shop, $start, $end, $platform);
@@ -107,12 +117,16 @@ final class GetTrackingOverview
 
             $isConnected = in_array($platform, $connected, true);
             if ($isConnected) {
-                $scoredStats[$platform] = $stats;
+                $scoredStats[$platform] = $this->withoutIgnored($stats, $ignored[$platform] ?? []);
             }
+
+            $resolvedFailed = array_sum($ignored[$platform] ?? []);
+            $resolvedFailedTotal += $resolvedFailed;
 
             $platforms[$platform] = [
                 'connected' => $isConnected,
                 ...$totals,
+                'resolved_failed' => $resolvedFailed,
                 'delivery_rate' => DeliveryRate::forStat($totals),
             ];
         }
@@ -141,6 +155,7 @@ final class GetTrackingOverview
                 'events' => $totalEvents,
                 'purchases' => array_sum($series['purchases']),
                 'failed' => $sum['failed'],
+                'resolved_failed' => $resolvedFailedTotal,
                 'attempted' => $sum['attempted'],
                 'delivered' => $sum['delivered'],
                 'eligible' => DeliveryRate::eligibleForStat($sum),
@@ -149,7 +164,30 @@ final class GetTrackingOverview
             'series' => $series,
             'platforms' => $platforms,
             'health' => HealthScore::calculate($pixelEnabled, $totalEvents > 0, $hasRecentEvents, $scoredStats),
-            'issues' => $this->deliveryIssues->handle($shop, $start, $end, self::DELIVERY_PLATFORMS),
+            'issues' => $this->deliveryIssues->handle($shop, $start, $end, self::DELIVERY_PLATFORMS, $cutoffs),
         ];
+    }
+
+    /**
+     * Stats for the health score with ignored failures removed entirely (not failed and not
+     * eligible), so a resolved problem neither lowers the score nor dilutes newer failures.
+     *
+     * @param  list<array<string, mixed>>  $stats
+     * @param  array<string, int>  $ignored  per event
+     * @return list<array<string, mixed>>
+     */
+    private function withoutIgnored(array $stats, array $ignored): array
+    {
+        if ($ignored === []) {
+            return $stats;
+        }
+
+        return array_map(function (array $stat) use ($ignored): array {
+            $n = min((int) $stat['failed'], $ignored[$stat['event']] ?? 0);
+            $stat['failed'] = (int) $stat['failed'] - $n;
+            $stat['attempted'] = (int) $stat['attempted'] - $n;
+
+            return $stat;
+        }, $stats);
     }
 }

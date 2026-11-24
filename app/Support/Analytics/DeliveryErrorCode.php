@@ -28,6 +28,17 @@ final class DeliveryErrorCode
     /** Token or sign-in failure on a platform without a dedicated code. */
     public const string ACCESS_TOKEN_INVALID = 'ACCESS_TOKEN_INVALID';
 
+    /**
+     * Sign-in / token failures. Reconnecting the integration fixes them, so failures from before
+     * the latest reconnect (platform_integrations.connected_at) are no longer counted.
+     */
+    public const array AUTH_CODES = [self::GOOGLE_ADS_AUTH, self::META_ACCESS_TOKEN, self::ACCESS_TOKEN_INVALID];
+
+    public static function isAuthCode(string $code): bool
+    {
+        return in_array($code, self::AUTH_CODES, true);
+    }
+
     private const string GOOGLE_AUTH_PATTERN = '/Google OAuth|invalid_grant|UNAUTHENTICATED|\\[401\\]/i';
 
     private const string TOKEN_PATTERN = '/access token|OAuthException/i';

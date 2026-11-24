@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Typography } from '@mui/material';
 import { useShopStatus } from './hooks/useShopStatus';
 import { useOverview } from './hooks/useOverview';
+import { useResolveIssue } from './hooks/useResolveIssue';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { PageLayout } from '../../components/ui/PageLayout';
 import { PeriodToggle } from '../../components/ui/PeriodToggle';
@@ -22,6 +23,7 @@ export function HomePage() {
   const [days, setDays] = useState<Days>(30);
   const shop = useShopStatus();
   const overview = useOverview(days);
+  const issueResolution = useResolveIssue();
 
   if (shop.isLoading) return <LoadingState />;
   if (shop.error) return <Alert severity="error">{shop.error.message}</Alert>;
@@ -74,7 +76,7 @@ export function HomePage() {
                 color="#29845a"
               />
               <MetricTile label="Purchases tracked" value={data.totals.purchases.toLocaleString()} caption={`Orders seen by the pixel, ${rangeLabel}`} series={data.series.purchases} />
-              <MetricTile label="Failed uploads" value={data.totals.failed.toLocaleString()} caption={data.issues.length > 0 ? `${data.issues.length} issue${data.issues.length === 1 ? '' : 's'} to review` : 'Google Ads and Meta'} series={data.series.failed} color="#e22c38" critical={data.totals.failed > 0} />
+              <MetricTile label="Failed uploads" value={data.totals.failed.toLocaleString()} caption={data.issues.length > 0 ? `${data.issues.length} issue${data.issues.length === 1 ? '' : 's'} to review` : (data.totals.resolved_failed ?? 0) > 0 ? 'All issues marked resolved' : 'Google Ads and Meta'} series={data.series.failed} color="#e22c38" critical={data.totals.failed > 0} />
             </Box>
           </Box>
           <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2, mt: -1 }}>
@@ -84,7 +86,7 @@ export function HomePage() {
           {data.issues.length > 0 && (
             <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
               {data.issues.slice(0, 3).map((issue) => (
-                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact context="overview" />
+                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact context="overview" onResolve={() => issueResolution.resolve({ platform: issue.platform, code: issue.code })} />
               ))}
             </Box>
           )}
@@ -96,6 +98,7 @@ export function HomePage() {
       </Box>
 
       <PlatformsTable overview={data} integrations={integrations} onNavigate={navigate} />
+      {issueResolution.snackbar}
     </PageLayout>
   );
 }

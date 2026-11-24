@@ -104,6 +104,8 @@ export interface DeliveryIssue {
   events: { event: string; label: string; count: number }[];
   message: string;
   last_seen_at: string | null;
+  /** Set when the issue came back after being marked resolved; count then holds only newer failures. */
+  resolved_at?: string | null;
 }
 
 export interface HealthDeduction {
@@ -115,6 +117,8 @@ export interface HealthDeduction {
 
 export interface OverviewDeliveryPlatform extends PlatformDeliveryTotals {
   connected: boolean;
+  /** Failed uploads no longer counted in issues and the health score (resolved, or sign-in errors before a reconnect). */
+  resolved_failed?: number;
 }
 
 export interface OverviewResponse {
@@ -122,7 +126,7 @@ export interface OverviewResponse {
   pixel_enabled: boolean;
   has_data: boolean;
   last_event_at: string | null;
-  totals: { events: number; purchases: number; failed: number; attempted: number; delivered: number; eligible: number; delivery_rate: number | null };
+  totals: { events: number; purchases: number; failed: number; resolved_failed?: number; attempted: number; delivered: number; eligible: number; delivery_rate: number | null };
   series: { dates: string[]; events: number[]; purchases: number[]; failed: number[]; delivery_rate: (number | null)[] };
   platforms: {
     google_ads: OverviewDeliveryPlatform;

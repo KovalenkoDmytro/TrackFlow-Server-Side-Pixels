@@ -21,6 +21,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * The last_success_at, last_error, and last_error_at columns are updated by
  * ProcessTrackingEvent after each upload attempt and surfaced in the settings
  * UI to give merchants visibility into integration health.
+ *
+ * connected_at is set whenever the merchant saves credentials that pass the connection
+ * test (connect or reconnect). It is null for integrations last connected before it existed.
  */
 final class PlatformIntegration extends Model
 {
@@ -33,6 +36,7 @@ final class PlatformIntegration extends Model
         'last_success_at',
         'last_error',
         'last_error_at',
+        'connected_at',
     ];
 
     protected $hidden = [
@@ -47,6 +51,7 @@ final class PlatformIntegration extends Model
             'settings' => 'array',
             'last_success_at' => 'datetime',
             'last_error_at' => 'datetime',
+            'connected_at' => 'datetime',
         ];
     }
 

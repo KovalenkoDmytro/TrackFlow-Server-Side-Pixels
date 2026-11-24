@@ -27,7 +27,8 @@ describe('POST /api/settings/meta — synchronous conversion action setup', func
         Queue::assertNothingPushed();
 
         $integration = PlatformIntegration::query()->where('platform', Platform::Meta)->firstOrFail();
-        expect($integration->conversionActionMappings()->where('active', true)->count())->toBeGreaterThan(0);
+        expect($integration->conversionActionMappings()->where('active', true)->count())->toBeGreaterThan(0)
+            ->and($integration->connected_at)->not->toBeNull();
     });
 
     it('returns an error and persists nothing when setup fails', function (): void {
