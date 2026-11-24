@@ -1,48 +1,101 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Typography } from '@mui/material';
-import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
-import SensorsRoundedIcon from '@mui/icons-material/SensorsRounded';
 import { useShopStatus } from './hooks/useShopStatus';
+import { useOverview } from './hooks/useOverview';
 import { LoadingState } from '../../components/ui/LoadingState';
+import { PageLayout } from '../../components/ui/PageLayout';
+import { PeriodToggle } from '../../components/ui/PeriodToggle';
+import { MetricTile } from '../../components/ui/MetricTile';
+import { IssueCard } from '../../components/ui/IssueCard';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { PixelStatusCard } from './components/PixelStatusCard';
-import { PlatformCard } from './components/PlatformCard';
+import { HealthScoreCard } from './components/HealthScoreCard';
+import { PlatformsTable } from './components/PlatformsTable';
+import { formatRate } from '../../lib/deliveryRate';
+import { platformLabel } from '../../lib/platforms';
 
-const PLATFORMS = [
-  { key: 'google_ads', label: 'Google Ads', initial: 'G', color: '#4285F4', bg: '#edf3ff', route: '/settings/google-ads' },
-  { key: 'meta', label: 'Meta', initial: 'M', color: '#1877F2', bg: '#eaf3ff', route: '/settings/meta' },
-  { key: 'ga4', label: 'Google Analytics 4', initial: 'A', color: '#d77900', bg: '#fff3dc', route: '/settings/ga4' },
-  { key: 'tiktok', label: 'TikTok', initial: 'T', color: '#ffffff', bg: '#202624', route: '/settings/tiktok', comingSoon: true },
-] as const;
+type Days = 7 | 30 | 90;
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { data, isLoading, error } = useShopStatus();
-  if (isLoading) return <LoadingState />;
-  if (error) return <Alert severity="error">{error.message}</Alert>;
-  const integrations = data?.integrations ?? {};
-  const connectedCount = PLATFORMS.filter((platform) => Boolean(integrations[platform.key])).length;
-  const pixelEnabled = Boolean(data?.shop?.pixel_enabled);
+  const [days, setDays] = useState<Days>(30);
+  const shop = useShopStatus();
+  const overview = useOverview(days);
+
+  if (shop.isLoading) return <LoadingState />;
+  if (shop.error) return <Alert severity="error">{shop.error.message}</Alert>;
+
+  const integrations = shop.data?.integrations ?? {};
+  const pixelEnabled = Boolean(shop.data?.shop?.pixel_enabled);
+  const data = overview.data;
+  const connectedCount = ['google_ads', 'meta', 'ga4'].filter((k) => integrations[k]).length;
+  const rangeLabel = `last ${days} days`;
+
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, flexWrap: 'wrap', mb: 4 }}>
-        <Box><Typography sx={{ color: '#71837a', fontSize: 11, fontWeight: 800, letterSpacing: '.14em', mb: 1 }}>YOUR WORKSPACE / OVERVIEW</Typography><Typography variant="h4" sx={{ fontSize: { xs: 30, md: 38 } }}>Tracking overview</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>Everything you need to keep your conversion data flowing.</Typography></Box>
-        <Button variant="outlined" endIcon={<ArrowForwardRoundedIcon />} onClick={() => navigate('/analytics')}>View analytics</Button>
-      </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.45fr 1fr' }, gap: 2, mb: 4 }}>
-        <Box sx={{ position: 'relative', overflow: 'hidden', minHeight: 220, p: { xs: 3, md: 4 }, borderRadius: '20px', bgcolor: '#dceecf', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <Box sx={{ position: 'absolute', width: 240, height: 240, border: '1px solid rgba(49,96,59,.15)', borderRadius: '50%', right: -35, top: -75, boxShadow: '0 0 0 35px rgba(255,255,255,.12), 0 0 0 70px rgba(255,255,255,.1)' }} />
-          <Box sx={{ position: 'relative' }}><Typography sx={{ color: '#56735a', fontSize: 11, letterSpacing: '.13em', fontWeight: 800 }}>YOUR STORE, CONNECTED</Typography><Typography variant="h5" sx={{ mt: 1.5, maxWidth: 430, fontSize: { xs: 25, md: 29 }, lineHeight: 1.2 }}>Make every event count.</Typography><Typography sx={{ color: '#526b55', maxWidth: 390, mt: 1, fontSize: 14 }}>A simple home for your pixel and the platforms that power your growth.</Typography></Box>
-          <Box sx={{ position: 'relative', mt: 3, display: 'flex', alignItems: 'center', gap: 1 }}><Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#4f8a57' }} /><Typography sx={{ fontSize: 12, color: '#46644a', fontWeight: 700, overflowWrap: 'anywhere' }}>{data?.shop?.name || 'Your Shopify store'}</Typography></Box>
+    <PageLayout
+      title="Overview"
+      subtitle={shop.data?.shop?.name}
+      actions={<>
+        <PeriodToggle<Days> ariaLabel="Overview period" value={days} onChange={setDays} options={[{ value: 7, label: '7 days' }, { value: 30, label: '30 days' }, { value: 90, label: '90 days' }]} />
+        <Button variant="contained" onClick={() => navigate('/analytics')}>View analytics</Button>
+      </>}
+    >
+      {overview.error && <Alert severity="error" sx={{ mb: 2 }}>{overview.error.message}</Alert>}
+
+      {data && !data.has_data && (
+        <Box sx={{ mb: 2 }}>
+          <EmptyState
+            title={!pixelEnabled ? 'Turn on the web pixel to start tracking' : connectedCount === 0 ? 'Connect your first ad platform' : `No events in the ${rangeLabel}`}
+            description={!pixelEnabled
+              ? 'TrackFlow collects storefront events with a Shopify web pixel. Turn it on below, then health, delivery and purchase metrics appear here.'
+              : connectedCount === 0
+                ? 'Connect Google Ads, Meta or GA4 so TrackFlow can send your store events to them server-side.'
+                : 'Your pixel is on. Metrics appear here as soon as visitors browse your store.'}
+            actionLabel={pixelEnabled && connectedCount === 0 ? 'Connect Google Ads' : undefined}
+            onAction={pixelEnabled && connectedCount === 0 ? () => navigate('/settings/google-ads') : undefined}
+          />
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 2 }}>
-          {[{ label: 'TRACKING PIXEL', value: pixelEnabled ? 'Active' : 'Inactive', detail: pixelEnabled ? 'Collecting events' : 'Ready to set up', icon: SensorsRoundedIcon }, { label: 'CONNECTED PLATFORMS', value: `${connectedCount} connected`, detail: 'Across your integrations', icon: HubOutlinedIcon }].map(({ label, value, detail, icon: Icon }) => <Box key={label} sx={{ bgcolor: '#fff', border: '1px solid #e8ece6', borderRadius: '18px', p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><Box><Typography sx={{ fontSize: 10, letterSpacing: '.12em', fontWeight: 800, color: '#87948b' }}>{label}</Typography><Typography sx={{ mt: .7, fontSize: 22, fontWeight: 750, letterSpacing: '-.04em' }}>{value}</Typography><Typography sx={{ color: '#829087', fontSize: 12, mt: .25 }}>{detail}</Typography></Box><Box sx={{ width: 44, height: 44, borderRadius: '14px', bgcolor: '#f0f5ee', color: '#577b5c', display: 'grid', placeItems: 'center' }}><Icon /></Box></Box>)}
-        </Box>
+      )}
+
+      {overview.isLoading && <LoadingState />}
+
+      {data && data.has_data && (
+        <>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.05fr 2fr' }, gap: 2, mb: 2 }}>
+            <HealthScoreCard overview={data} />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <MetricTile label="Events received" value={data.totals.events.toLocaleString()} caption={`From the web pixel, ${rangeLabel}`} series={data.series.events} />
+              <MetricTile
+                label="Delivery rate"
+                value={formatRate(data.totals.delivery_rate)}
+                caption={(['google_ads', 'meta'] as const).filter((k) => data.platforms[k].connected).map((k) => `${platformLabel(k)} ${formatRate(data.platforms[k].delivery_rate)}`).join(' · ') || 'Google Ads and Meta'}
+                series={data.series.delivery_rate}
+                color="#29845a"
+              />
+              <MetricTile label="Purchases tracked" value={data.totals.purchases.toLocaleString()} caption={`Orders seen by the pixel, ${rangeLabel}`} series={data.series.purchases} />
+              <MetricTile label="Failed uploads" value={data.totals.failed.toLocaleString()} caption={data.issues.length > 0 ? `${data.issues.length} issue${data.issues.length === 1 ? '' : 's'} to review` : 'Google Ads and Meta'} series={data.series.failed} color="#e22c38" critical={data.totals.failed > 0} />
+            </Box>
+          </Box>
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2, mt: -1 }}>
+            Delivery rate = accepted ÷ eligible uploads to Google Ads and Meta (skipped and pending excluded). GA4 does not report delivery and is not part of the health score.
+          </Typography>
+
+          {data.issues.length > 0 && (
+            <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
+              {data.issues.slice(0, 3).map((issue) => (
+                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact actionLabel={`Review in ${platformLabel(issue.platform)}`} onAction={() => navigate(`/analytics/platform/${issue.platform}`)} />
+              ))}
+            </Box>
+          )}
+        </>
+      )}
+
+      <Box sx={{ mb: 2 }}>
+        <PixelStatusCard pixelEnabled={pixelEnabled} pixelId={shop.data?.shop?.shopify_pixel_id} />
       </Box>
-      <Box sx={{ mb: 1.8 }}><Typography variant="h6">Your tracking pixel</Typography><Typography variant="body2" color="text.secondary" sx={{ mt: .35 }}>Manage event collection for your Shopify store.</Typography></Box>
-      <PixelStatusCard pixelEnabled={pixelEnabled} pixelId={data?.shop?.shopify_pixel_id} />
-      <Box sx={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', gap: 2, mb: 1.8, mt: 4 }}><Box><Typography variant="h6">Your integrations</Typography><Typography variant="body2" color="text.secondary" sx={{ mt: .35 }}>Connect your platforms and put your data to work.</Typography></Box><Typography sx={{ fontSize: 12, color: '#829087', whiteSpace: 'nowrap' }}>{connectedCount} connected</Typography></Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: '1fr 1fr' }, gap: 2 }}>{PLATFORMS.map((platform) => <PlatformCard key={platform.key} label={platform.label} initial={platform.initial} color={platform.color} bg={platform.bg} connected={Boolean(integrations[platform.key])} comingSoon={'comingSoon' in platform && platform.comingSoon} onNavigate={() => navigate(platform.route)} onViewEvents={() => navigate(`/analytics/platform/${platform.key}`)} />)}</Box>
-    </Box>
+
+      <PlatformsTable overview={data} integrations={integrations} onNavigate={navigate} />
+    </PageLayout>
   );
 }

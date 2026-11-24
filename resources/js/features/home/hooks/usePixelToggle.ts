@@ -13,6 +13,9 @@ export function usePixelToggle() {
     mutationFn: (enabled: boolean) => togglePixel(apiClient, enabled),
     // Refetch from the backend rather than trusting the mutation response alone,
     // so the UI always reflects the real Shopify-side pixel state.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SHOP_STATUS_QUERY_KEY }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: SHOP_STATUS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: ['overview'] });
+    },
   });
 }

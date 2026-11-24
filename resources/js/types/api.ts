@@ -47,6 +47,7 @@ export interface AnalyticsSummary {
   delivery_stats?: PlatformDeliveryStat[];
   totals?: PlatformDeliveryTotals;
   integration?: PlatformIntegrationState;
+  issues?: DeliveryIssue[];
   counts: EventCount[];
   total: number;
   period: AnalyticsPeriod | null;
@@ -79,6 +80,8 @@ export interface PlatformDeliveryStat {
   last_error: string | null;
   /** Which kind of row last_error came from: 'expired' is informational, not a failure. */
   last_error_status?: 'failed' | 'expired' | null;
+  /** Accepted / eligible (excludes other_account, expired, pending); null when nothing is eligible. */
+  delivery_rate?: number | null;
 }
 
 export interface PlatformDeliveryTotals {
@@ -88,6 +91,47 @@ export interface PlatformDeliveryTotals {
   pending: number;
   other_account: number;
   expired: number;
+  delivery_rate?: number | null;
+}
+
+/** Failed deliveries grouped by platform and error code. */
+export interface DeliveryIssue {
+  platform: string;
+  code: string;
+  count: number;
+  /** Count weighted by event importance (Purchase 1, checkout 0.5, browse 0.2). */
+  impact: number;
+  events: { event: string; label: string; count: number }[];
+  message: string;
+  last_seen_at: string | null;
+}
+
+export interface HealthDeduction {
+  key: 'pixel_disabled' | 'no_recent_events' | 'delivery_failures';
+  platform: string | null;
+  points: number;
+  weighted_failure_rate: number | null;
+}
+
+export interface OverviewDeliveryPlatform extends PlatformDeliveryTotals {
+  connected: boolean;
+}
+
+export interface OverviewResponse {
+  period: { start: string; end: string; days: number };
+  pixel_enabled: boolean;
+  has_data: boolean;
+  last_event_at: string | null;
+  totals: { events: number; purchases: number; failed: number; attempted: number; delivered: number; eligible: number; delivery_rate: number | null };
+  series: { dates: string[]; events: number[]; purchases: number[]; failed: number[]; delivery_rate: (number | null)[] };
+  platforms: {
+    google_ads: OverviewDeliveryPlatform;
+    meta: OverviewDeliveryPlatform;
+    ga4: { connected: boolean; events: number };
+    tiktok: { connected: boolean; coming_soon: boolean };
+  };
+  health: { score: number; status: 'healthy' | 'attention' | 'critical'; deductions: HealthDeduction[] };
+  issues: DeliveryIssue[];
 }
 
 export interface PlatformIntegrationState {
@@ -100,6 +144,7 @@ export interface PlatformDeliverySummary {
   delivery_stats: PlatformDeliveryStat[];
   totals: PlatformDeliveryTotals;
   integration?: PlatformIntegrationState;
+  issues?: DeliveryIssue[];
 }
 
 export interface PlatformDeliveryResponse {
