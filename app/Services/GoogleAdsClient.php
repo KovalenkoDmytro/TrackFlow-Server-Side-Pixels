@@ -47,6 +47,19 @@ final class GoogleAdsClient implements ConversionPlatformContract, ReportsPartia
     ];
 
     /**
+     * Events whose conversion action is primary (biddable). Every other TrackFlow action is
+     * secondary: still recorded for reporting, never used for bidding.
+     * Google Ads defaults primary_for_goal to true, so false must be sent explicitly.
+     */
+    private const array PRIMARY_FOR_GOAL_EVENTS = ['purchase'];
+
+    /** Whether the TrackFlow conversion action for a Shopify event is primary for bidding. */
+    public static function isPrimaryForGoal(string $event): bool
+    {
+        return in_array($event, self::PRIMARY_FOR_GOAL_EVENTS, true);
+    }
+
+    /**
      * Exchange a stored OAuth refresh token for a short-lived access token.
      *
      * @param  array<string, mixed>  $oauth  Must contain keys: client_id, client_secret, refresh_token.
@@ -201,10 +214,91 @@ final class GoogleAdsClient implements ConversionPlatformContract, ReportsPartia
     }
 
     /**
+     * TrackFlow ("TF - ") conversion actions with their current primary_for_goal flag, keyed by event.
+     *
+     * @param  array<string, mixed>  $credentials
+     * @return array<string, array{resource_name: string, primary_for_goal: bool}>
+     */
+    public function getTrackFlowConversionActionGoals(array $credentials): array
+    {
+        $accessToken = $this->getAccessToken($credentials['oauth']);
+        $customerId = str_replace('-', '', $credentials['customer_id']);
+
+        $response = Http::withHeaders($this->buildHeaders($accessToken, $credentials))
+            ->post(
+                "https://googleads.googleapis.com/v24/customers/{$customerId}/googleAds:search",
+                [
+                    'query' => 'SELECT conversion_action.resource_name, conversion_action.name, conversion_action.primary_for_goal '
+                        .'FROM conversion_action '
+                        ."WHERE conversion_action.name LIKE 'TF - %' AND conversion_action.status != 'REMOVED'",
+                ],
+            );
+
+        if (! $response->successful()) {
+            $status = $response->status();
+            $errorMessage = $this->extractApiError($response->json(), $response->body());
+            throw new \RuntimeException("Failed to list Google Ads conversion actions [{$status}]: {$errorMessage}");
+        }
+
+        $actions = [];
+
+        foreach ($response->json('results', []) as $result) {
+            $conversionAction = $result['conversionAction'] ?? [];
+            $name = $conversionAction['name'] ?? null;
+            $resourceName = $conversionAction['resourceName'] ?? null;
+
+            if (! is_string($name) || ! str_starts_with($name, 'TF - ') || ! is_string($resourceName)) {
+                continue;
+            }
+
+            $event = substr($name, strlen('TF - '));
+
+            if (array_key_exists($event, self::EVENT_CATEGORIES)) {
+                // primary_for_goal is an optional field: an unset value means Google's default, true.
+                $actions[$event] = [
+                    'resource_name' => $resourceName,
+                    'primary_for_goal' => (bool) ($conversionAction['primaryForGoal'] ?? true),
+                ];
+            }
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Set primary_for_goal on an existing conversion action (update operation with a field mask).
+     *
+     * @param  array<string, mixed>  $credentials
+     *
+     * @throws \RuntimeException On non-2xx HTTP response.
+     */
+    public function updatePrimaryForGoal(array $credentials, string $resourceName, bool $primary): void
+    {
+        $accessToken = $this->getAccessToken($credentials['oauth']);
+        $customerId = str_replace('-', '', $credentials['customer_id']);
+
+        $response = Http::withHeaders($this->buildHeaders($accessToken, $credentials))
+            ->post("https://googleads.googleapis.com/v24/customers/{$customerId}/conversionActions:mutate", [
+                'operations' => [[
+                    'update' => ['resource_name' => $resourceName, 'primary_for_goal' => $primary],
+                    'update_mask' => 'primary_for_goal',
+                ]],
+            ]);
+
+        if (! $response->successful()) {
+            $status = $response->status();
+            $errorMessage = $this->extractApiError($response->json(), $response->body());
+            $this->throwIfAccessRevoked($status, $response->json(), $errorMessage);
+            throw new \RuntimeException("Failed to update conversion action [{$status}]: {$errorMessage}");
+        }
+    }
+
+    /**
      * Create a single conversion action on Google Ads and return its resource name.
      *
      * The action is created with UPLOAD_CLICKS type and
-     * GOOGLE_ADS_LAST_CLICK attribution model. The name is prefixed
+     * GOOGLE_ADS_LAST_CLICK attribution model. Only Purchase is primary for goal
+     * (biddable); every other event is created as a secondary action. The name is prefixed
      * with "TF - " to identify TrackFlow-managed actions in the Google Ads UI.
      *
      * @param  array<string, mixed>  $credentials  Decrypted credentials (same shape as testCredentials).
@@ -227,6 +321,7 @@ final class GoogleAdsClient implements ConversionPlatformContract, ReportsPartia
                         'type' => 'UPLOAD_CLICKS',
                         'category' => $category,
                         'status' => 'ENABLED',
+                        'primary_for_goal' => self::isPrimaryForGoal($name),
                         'attribution_model_settings' => [
                             'attribution_model' => 'GOOGLE_ADS_LAST_CLICK',
                         ],

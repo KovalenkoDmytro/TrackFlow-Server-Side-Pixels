@@ -71,6 +71,87 @@ it('repairs mappings from existing Google Ads conversion actions without creatin
         && $request->data()['operations'][0]['create']['name'] === 'TF - purchase');
 });
 
+it('marks only Purchase as primary for goal', function (string $event, bool $primary): void {
+    expect(GoogleAdsClient::isPrimaryForGoal($event))->toBe($primary);
+})->with([
+    ['purchase', true],
+    ['view_item', false],
+    ['view_cart', false],
+    ['add_to_cart', false],
+    ['remove_from_cart', false],
+    ['begin_checkout', false],
+    ['add_shipping_info', false],
+    ['add_payment_info', false],
+    ['search', false],
+    ['page_view', false],
+]);
+
+it('creates conversion actions with primary_for_goal set explicitly per event', function (string $event, string $category, bool $primary): void {
+    Http::fake([
+        'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token']),
+        'https://googleads.googleapis.com/v24/customers/1234567890/conversionActions:mutate' => Http::response([
+            'results' => [['resourceName' => 'customers/1234567890/conversionActions/1']],
+        ]),
+    ]);
+
+    (new GoogleAdsClient)->createConversionAction(
+        ['customer_id' => '123-456-7890', 'oauth' => ['client_id' => 'id', 'client_secret' => 'secret', 'refresh_token' => 'refresh']],
+        $event,
+        $category,
+    );
+
+    Http::assertSent(function ($request) use ($event, $category, $primary): bool {
+        if (! str_ends_with($request->url(), '/conversionActions:mutate')) {
+            return false;
+        }
+        $create = $request->data()['operations'][0]['create'];
+
+        return $create['name'] === "TF - {$event}"
+            && $create['category'] === $category
+            && $create['type'] === 'UPLOAD_CLICKS'
+            && array_key_exists('primary_for_goal', $create)
+            && $create['primary_for_goal'] === $primary;
+    });
+})->with([
+    ['purchase', 'PURCHASE', true],
+    ['view_item', 'PAGE_VIEW', false],
+    ['add_to_cart', 'ADD_TO_CART', false],
+    ['begin_checkout', 'BEGIN_CHECKOUT', false],
+]);
+
+it('creates every missing non-purchase action as secondary during setup', function (): void {
+    Http::fake([
+        'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token']),
+        'https://googleads.googleapis.com/v24/customers/1234567890/googleAds:search' => Http::response(['results' => []]),
+        'https://googleads.googleapis.com/v24/customers/1234567890/conversionActions:mutate' => Http::response([
+            'results' => [['resourceName' => 'customers/1234567890/conversionActions/1']],
+        ]),
+    ]);
+
+    $shop = User::factory()->create();
+    $integration = PlatformIntegration::query()->create([
+        'user_id' => $shop->getKey(),
+        'platform' => Platform::GoogleAds,
+        'active' => true,
+        'credentials' => json_encode(['customer_id' => '123-456-7890', 'oauth' => ['client_id' => 'id', 'client_secret' => 'secret', 'refresh_token' => 'refresh']]),
+    ]);
+
+    (new GoogleAdsClient)->setupConversionActions($integration);
+
+    $creates = [];
+    Http::assertSent(function ($request) use (&$creates): bool {
+        if (str_ends_with($request->url(), '/conversionActions:mutate')) {
+            $create = $request->data()['operations'][0]['create'];
+            $creates[substr($create['name'], strlen('TF - '))] = $create['primary_for_goal'];
+        }
+
+        return true;
+    });
+
+    expect($creates)->toHaveCount(9)
+        ->and(array_keys(array_filter($creates)))->toBe(['purchase']);
+});
+
 it('uses OAuth and the optional manager ID without a developer token', function (): void {
     Http::fake([
         'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token']),
