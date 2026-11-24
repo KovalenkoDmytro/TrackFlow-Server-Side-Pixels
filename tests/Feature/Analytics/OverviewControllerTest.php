@@ -102,6 +102,33 @@ describe('GET /api/overview', function (): void {
             ->and($response->json('health.score'))->toBeLessThan(100)
             ->and($response->json('health.deductions.0.platform'))->toBe('google_ads');
     });
+
+    it('keeps each issue on its own platform and scores Meta failures too', function (): void {
+        $shop = User::factory()->create(['pixel_enabled' => true]);
+        $ads = ovIntegration($shop, Platform::GoogleAds);
+        $meta = ovIntegration($shop, Platform::Meta);
+        $googleToken = 'Failed to obtain access token from Google OAuth [invalid_client].';
+        $metaToken = 'Error validating access token: Session has expired on Tuesday.';
+
+        ovDelivery($shop, $ads, TrackingEventType::ViewItem, 'failed', '2026-11-24 09:00:00', $googleToken);
+        ovDelivery($shop, $ads, TrackingEventType::Purchase, 'failed', '2026-11-24 09:05:00', $googleToken);
+        ovDelivery($shop, $ads, TrackingEventType::ViewItem, 'delivered', '2026-11-24 09:10:00');
+        ovDelivery($shop, $meta, TrackingEventType::Purchase, 'failed', '2026-11-24 10:00:00', $metaToken);
+        ovDelivery($shop, $meta, TrackingEventType::ViewItem, 'failed', '2026-11-24 10:05:00', $metaToken);
+        ovDelivery($shop, $meta, TrackingEventType::ViewItem, 'delivered', '2026-11-24 10:10:00');
+
+        $response = $this->withToken($this->shopifySessionToken($shop))->getJson('/api/overview?days=7');
+        $response->assertOk();
+
+        $issues = collect($response->json('issues'))->keyBy('platform');
+        expect($issues->keys()->sort()->values()->all())->toBe(['google_ads', 'meta'])
+            ->and($issues['google_ads']['code'])->toBe('GOOGLE_ADS_AUTH')
+            ->and($issues['meta']['code'])->toBe('META_ACCESS_TOKEN')
+            ->and($issues['meta']['count'])->toBe(2)
+            ->and(collect($issues['meta']['events'])->pluck('count', 'event')->sortKeys()->all())->toBe(['purchase' => 1, 'view_item' => 1])
+            ->and($response->json('platforms.meta.failed'))->toBe(2)
+            ->and(collect($response->json('health.deductions'))->pluck('platform')->sort()->values()->all())->toBe(['google_ads', 'meta']);
+    });
 });
 
 describe('GET /api/analytics platform delivery rate', function (): void {

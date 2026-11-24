@@ -38,7 +38,9 @@ function Line({ ok, children }: { ok: boolean; children: ReactNode }) {
 export function HealthScoreCard({ overview }: { overview: OverviewResponse }) {
   const status = STATUS[overview.health.status];
   const connected = (['google_ads', 'meta', 'ga4'] as const).filter((k) => overview.platforms[k].connected).length;
-  const failing = overview.health.deductions.filter((d) => d.key === 'delivery_failures');
+  const deductionFor = (platform: string) => overview.health.deductions.find((d) => d.key === 'delivery_failures' && d.platform === platform);
+  // One line per connected ad platform (Google Ads and Meta both count toward the score).
+  const scored = (['google_ads', 'meta'] as const).filter((k) => overview.platforms[k].connected);
   const noRecent = overview.health.deductions.some((d) => d.key === 'no_recent_events');
 
   return (
@@ -56,9 +58,12 @@ export function HealthScoreCard({ overview }: { overview: OverviewResponse }) {
           <Line ok={overview.pixel_enabled}>{overview.pixel_enabled ? 'Web pixel active' : 'Web pixel is off'}</Line>
           <Line ok={connected > 0}>{connected} of 3 platforms connected</Line>
           {noRecent && <Line ok={false}>No events in the last 24 hours</Line>}
-          {failing.length === 0
-            ? <Line ok>No delivery problems</Line>
-            : failing.map((d) => <Line key={d.platform} ok={false}>{platformLabel(d.platform ?? '')}: {d.weighted_failure_rate}% weighted failures (−{d.points})</Line>)}
+          {scored.map((key) => {
+            const d = deductionFor(key);
+            const failed = overview.platforms[key].failed;
+            if (d) return <Line key={key} ok={false}>{platformLabel(key)}: {failed.toLocaleString()} failed, {d.weighted_failure_rate}% weighted (−{d.points})</Line>;
+            return <Line key={key} ok>{platformLabel(key)}: {failed > 0 ? `${failed.toLocaleString()} failed, within tolerance` : 'no failed uploads'}</Line>;
+          })}
         </Box>
       </Box>
     </Card>

@@ -84,7 +84,7 @@ export function HomePage() {
           {data.issues.length > 0 && (
             <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
               {data.issues.slice(0, 3).map((issue) => (
-                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact actionLabel={`Review in ${platformLabel(issue.platform)}`} onAction={() => navigate(`/analytics/platform/${issue.platform}`)} />
+                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact context="overview" />
               ))}
             </Box>
           )}

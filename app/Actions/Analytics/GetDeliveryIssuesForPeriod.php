@@ -70,7 +70,7 @@ final class GetDeliveryIssuesForPeriod
             $event = (string) $row->getAttribute('event');
             $body = $row->getAttribute('response_body');
             $body = is_string($body) ? $body : null;
-            $code = DeliveryErrorCode::fromResponseBody($body);
+            $code = DeliveryErrorCode::fromResponseBody($body, $platform);
             $key = $platform.'|'.$code;
 
             if (! isset($groups[$key])) {
