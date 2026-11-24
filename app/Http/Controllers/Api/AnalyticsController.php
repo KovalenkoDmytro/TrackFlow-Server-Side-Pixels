@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Analytics\GetDeliveryIssuesForPeriod;
 use App\Actions\Analytics\GetEventCountsForPeriod;
 use App\Actions\Analytics\GetGoogleAdsAttribution;
 use App\Actions\Analytics\GetPlatformDeliveryStatsForPeriod;
@@ -11,6 +12,7 @@ use App\Enums\Platform;
 use App\Enums\TrackingEventType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Analytics\AnalyticsFilterRequest;
+use App\Support\Analytics\DeliveryRate;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 
@@ -101,8 +103,14 @@ final class AnalyticsController extends Controller
                 'summary' => [
                     'period' => $period,
                     ...($platform === 'google_ads' ? app(GetGoogleAdsAttribution::class)->handle($shop, $start, $end) : []),
-                    'delivery_stats' => $deliveryStats,
-                    'totals' => $totals,
+                    // delivery_rate (accepted / eligible, excluding other_account, expired and pending) and
+                    // issues (failures grouped by error code) are additive fields for the platform page.
+                    'delivery_stats' => array_map(
+                        fn (array $stat): array => [...$stat, 'delivery_rate' => DeliveryRate::forStat($stat)],
+                        $deliveryStats,
+                    ),
+                    'totals' => [...$totals, 'delivery_rate' => DeliveryRate::forStat($totals)],
+                    'issues' => app(GetDeliveryIssuesForPeriod::class)->handle($shop, $start, $end, [$platform]),
                     'integration' => [
                         'active' => $integration?->active === true,
                         'active_mappings' => (int) ($integration->active_mappings_count ?? 0),

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\Ga4ApiController;
 use App\Http\Controllers\Api\GoogleAdsApiController;
 use App\Http\Controllers\Api\MetaApiController;
+use App\Http\Controllers\Api\OverviewController;
 use App\Http\Controllers\Api\PixelApiController;
 use App\Http\Controllers\Api\ShopStatusController;
 use App\Http\Controllers\ConversionController;
@@ -17,6 +18,7 @@ Route::post('/conversions', [ConversionController::class, 'track']);
 Route::middleware([AuthenticateShopifySessionToken::class])->group(function (): void {
     Route::get('/shop-status', [ShopStatusController::class, 'index']);
     Route::get('/analytics', [AnalyticsController::class, 'index']);
+    Route::get('/overview', [OverviewController::class, 'index']);
 
     Route::put('/pixel', [PixelApiController::class, 'update']);
 
