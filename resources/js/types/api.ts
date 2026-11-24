@@ -106,6 +106,11 @@ export interface DeliveryIssue {
   last_seen_at: string | null;
   /** Set when the issue came back after being marked resolved; count then holds only newer failures. */
   resolved_at?: string | null;
+  /**
+   * primary: the merchant cannot fix this, so "Send to support" is the main action.
+   * reported_at: set while a support report for this issue is open.
+   */
+  support?: { primary: boolean; reported_at: string | null };
 }
 
 export interface HealthDeduction {

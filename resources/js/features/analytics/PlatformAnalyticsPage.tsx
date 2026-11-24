@@ -96,7 +96,7 @@ export function PlatformAnalyticsPage() {
 
       {!isFetching && issues.length > 0 && (
         <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
-          {issues.map((issue) => <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} context="platform" onResolve={() => issueResolution.resolve({ platform: issue.platform, code: issue.code })} />)}
+          {issues.map((issue) => <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} context="platform" onResolve={() => issueResolution.resolve({ platform: issue.platform, code: issue.code })} onReport={(note) => issueResolution.report({ platform: issue.platform, code: issue.code }, note)} />)}
         </Box>
       )}
 

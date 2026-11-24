@@ -40,14 +40,14 @@ const GOOGLE_GUIDES: Record<string, ErrorGuide> = {
     steps: [
       'In Google Ads, open Admin → Account settings and compare the account time zone with your Shopify store time zone (Settings → General).',
       'If only browse events such as View Item are affected, no action is needed: purchases and bidding are not affected unless you optimise for that event.',
-      'If purchases or checkout steps are affected, contact TrackFlow support with the error code below.',
+      'If purchases or checkout steps are affected, use Send to support below: TrackFlow gets the error details automatically.',
     ],
     docsUrl: GOOGLE_UPLOAD_DOCS,
   },
   TOO_RECENT_EVENT: {
     title: 'The ad click is too recent',
     explanation: 'Google needs a few hours after a click before it accepts a conversion for it.',
-    steps: ['No action is usually needed. If this keeps happening for most events, contact TrackFlow support.'],
+    steps: ['No action is usually needed. If this keeps happening for most events, use Send to support below.'],
     docsUrl: GOOGLE_UPLOAD_DOCS,
   },
   EVENT_NOT_FOUND: {
@@ -193,7 +193,7 @@ export function guideFor(code: string, platform: string, platformLabel: string):
     explanation: `${platformLabel} did not accept these events. The latest message from ${platformLabel} is shown below.`,
     steps: [
       `Check that the ${platformLabel} connection in TrackFlow settings is still valid.`,
-      'If the problem continues, contact TrackFlow support and include the error code and message below.',
+      'If the problem continues, use Send to support below: TrackFlow gets the error code, message and examples automatically.',
     ],
     docsUrl: docs?.url,
     docsLabel: docs?.label,

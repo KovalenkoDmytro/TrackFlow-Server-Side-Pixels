@@ -13,6 +13,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { PixelStatusCard } from './components/PixelStatusCard';
 import { HealthScoreCard } from './components/HealthScoreCard';
 import { PlatformsTable } from './components/PlatformsTable';
+import type { OverviewResponse } from '../../types/api';
 import { formatRate } from '../../lib/deliveryRate';
 import { platformLabel } from '../../lib/platforms';
 
@@ -76,7 +77,7 @@ export function HomePage() {
                 color="#29845a"
               />
               <MetricTile label="Purchases tracked" value={data.totals.purchases.toLocaleString()} caption={`Orders seen by the pixel, ${rangeLabel}`} series={data.series.purchases} />
-              <MetricTile label="Failed uploads" value={data.totals.failed.toLocaleString()} caption={data.issues.length > 0 ? `${data.issues.length} issue${data.issues.length === 1 ? '' : 's'} to review` : (data.totals.resolved_failed ?? 0) > 0 ? 'All issues marked resolved' : 'Google Ads and Meta'} series={data.series.failed} color="#e22c38" critical={data.totals.failed > 0} />
+              <MetricTile label="Failed uploads" value={data.totals.failed.toLocaleString()} caption={failedCaption(data)} series={data.series.failed} color="#e22c38" critical={data.totals.failed > 0} />
             </Box>
           </Box>
           <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2, mt: -1 }}>
@@ -86,7 +87,7 @@ export function HomePage() {
           {data.issues.length > 0 && (
             <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
               {data.issues.slice(0, 3).map((issue) => (
-                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact context="overview" onResolve={() => issueResolution.resolve({ platform: issue.platform, code: issue.code })} />
+                <IssueCard key={`${issue.platform}-${issue.code}`} issue={issue} compact context="overview" onResolve={() => issueResolution.resolve({ platform: issue.platform, code: issue.code })} onReport={(note) => issueResolution.report({ platform: issue.platform, code: issue.code }, note)} />
               ))}
             </Box>
           )}
@@ -101,4 +102,12 @@ export function HomePage() {
       {issueResolution.snackbar}
     </PageLayout>
   );
+}
+
+/** Issues sent to support are no longer "to review": the merchant has nothing to do. */
+function failedCaption(data: OverviewResponse): string {
+  const toReview = data.issues.filter((i) => !i.support?.reported_at).length;
+  if (toReview > 0) return `${toReview} issue${toReview === 1 ? '' : 's'} to review`;
+  if (data.issues.length > 0) return 'Sent to support';
+  return (data.totals.resolved_failed ?? 0) > 0 ? 'All issues marked resolved' : 'Google Ads and Meta';
 }

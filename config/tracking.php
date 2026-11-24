@@ -21,6 +21,13 @@ return [
         'future_clamp_margin_seconds' => (int) env('TRACKING_GOOGLE_ADS_FUTURE_CLAMP_MARGIN_SECONDS', 1),
     ],
 
+    // Recipient of "Send to support" reports from issue cards. Defaults to the app author
+    // (Dmytro Kovalenko, the commit author address in this repository).
+    'support_email' => env('SUPPORT_EMAIL', 'dmytrokovalenko.new@gmail.com'),
+
+    // Shown in support emails. Falls back to SENTRY_RELEASE, then the deployed git commit.
+    'app_version' => env('APP_VERSION', env('SENTRY_RELEASE')),
+
     'view_item_rate_limit' => [
         'per_ip_attempts' => (int) env('VIEW_ITEM_PER_IP_ATTEMPTS', 60),
         'per_ip_decay_seconds' => (int) env('VIEW_ITEM_PER_IP_DECAY_SECONDS', 300),

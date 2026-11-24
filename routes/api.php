@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MetaApiController;
 use App\Http\Controllers\Api\OverviewController;
 use App\Http\Controllers\Api\PixelApiController;
 use App\Http\Controllers\Api\ShopStatusController;
+use App\Http\Controllers\Api\SupportReportController;
 use App\Http\Controllers\ConversionController;
 use App\Http\Middleware\AuthenticateShopifySessionToken;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,7 @@ Route::middleware([AuthenticateShopifySessionToken::class])->group(function (): 
     Route::get('/overview', [OverviewController::class, 'index']);
     Route::post('/delivery-issues/resolutions', [DeliveryIssueResolutionController::class, 'store']);
     Route::delete('/delivery-issues/resolutions', [DeliveryIssueResolutionController::class, 'destroy']);
+    Route::post('/delivery-issues/support-reports', [SupportReportController::class, 'store'])->middleware('throttle:10,1');
 
     Route::put('/pixel', [PixelApiController::class, 'update']);
 

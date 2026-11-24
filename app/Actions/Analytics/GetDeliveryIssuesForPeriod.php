@@ -6,6 +6,7 @@ namespace App\Actions\Analytics;
 
 use App\Enums\TrackingEventType;
 use App\Models\PlatformDelivery;
+use App\Models\SupportReport;
 use App\Models\User;
 use App\Support\Analytics\DeliveryErrorCode;
 use App\Support\Analytics\FailureCutoffs;
@@ -35,6 +36,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *     message: string,
  *     last_seen_at: string|null,
  *     resolved_at: string|null,
+ *     support: array{primary: bool, reported_at: string|null},
  * }
  */
 final class GetDeliveryIssuesForPeriod
@@ -104,7 +106,9 @@ final class GetDeliveryIssuesForPeriod
             $groups[$key]['events'][$event] = ($groups[$key]['events'][$event] ?? 0) + 1;
         }
 
-        $issues = array_map(function (array $group): array {
+        $reported = $this->openReports($shop);
+
+        $issues = array_map(function (array $group) use ($reported): array {
             arsort($group['events']);
             $events = [];
             foreach ($group['events'] as $event => $count) {
@@ -116,6 +120,12 @@ final class GetDeliveryIssuesForPeriod
             }
             $group['events'] = $events;
             $group['impact'] = round($group['impact'], 1);
+            // primary: the merchant cannot fix this, so "Send to support" is the main action.
+            // reported_at: an open support report exists (the card shows a calm state).
+            $group['support'] = [
+                'primary' => DeliveryErrorCode::needsSupport($group['code']),
+                'reported_at' => $reported[$group['platform'].'|'.$group['code']] ?? null,
+            ];
 
             return $group;
         }, array_values($groups));
@@ -177,5 +187,20 @@ final class GetDeliveryIssuesForPeriod
             ->whereIn('platform_deliveries.platform', $platforms)
             ->whereIn('platform_deliveries.status', ['failed', 'partial_failure'])
             ->whereBetween('tracking_events.occurred_at', [$start, $end]);
+    }
+
+    /**
+     * Open support reports of the shop, keyed by platform|code, with the reported time.
+     *
+     * @return array<string, string>
+     */
+    private function openReports(User $shop): array
+    {
+        $out = [];
+        foreach (SupportReport::query()->open()->where('user_id', $shop->getKey())->get(['platform', 'code', 'reported_at']) as $report) {
+            $out[$report->platform.'|'.$report->code] = $report->reported_at->toIso8601String();
+        }
+
+        return $out;
     }
 }

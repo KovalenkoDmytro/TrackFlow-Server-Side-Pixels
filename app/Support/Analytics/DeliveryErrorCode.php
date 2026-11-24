@@ -34,6 +34,58 @@ final class DeliveryErrorCode
      */
     public const array AUTH_CODES = [self::GOOGLE_ADS_AUTH, self::META_ACCESS_TOKEN, self::ACCESS_TOKEN_INVALID];
 
+    /**
+     * Codes with a clear action the merchant can take (reconnect, fix the account or pixel, accept
+     * terms, ...). Their cards keep that action as primary with a secondary "Contact support" link.
+     * Every other code (code-side Google/Meta rejections, unknown errors) gets "Send to support"
+     * as the primary action, because the merchant cannot fix it.
+     */
+    public const array MERCHANT_FIXABLE_CODES = [
+        self::GOOGLE_ADS_AUTH,
+        self::META_ACCESS_TOKEN,
+        self::ACCESS_TOKEN_INVALID,
+        'UNAUTHORIZED_CUSTOMER',
+        'USER_PERMISSION_DENIED',
+        'INVALID_CONVERSION_ACTION',
+        'CUSTOMER_NOT_ACCEPTED_CUSTOMER_DATA_TERMS',
+        'EVENT_NOT_FOUND',
+        'INVALID_CUSTOMER_FOR_CLICK',
+        'meta_no_events_received',
+    ];
+
+    public static function isMerchantFixable(string $code): bool
+    {
+        return in_array($code, self::MERCHANT_FIXABLE_CODES, true);
+    }
+
+    /** Whether the issue card shows "Send to support" as its primary action. */
+    public static function needsSupport(string $code): bool
+    {
+        return ! self::isMerchantFixable($code);
+    }
+
+    /** Short human labels for support emails; the app UI has fuller guides (errorCatalog.ts). */
+    private const array LABELS = [
+        'CONVERSION_PRECEDES_EVENT' => 'Event time is earlier than the ad click',
+        'LATER_THAN_MAXIMUM_DATE' => 'Event time is later than Google allows (in the future)',
+        'TOO_RECENT_EVENT' => 'The ad click is too recent',
+        'EXPIRED_EVENT' => 'The ad click is older than the conversion window',
+        'EVENT_NOT_FOUND' => 'Google could not find the ad click',
+        'UNPARSEABLE_GCLID' => 'The click ID could not be read',
+        'INVALID_CONVERSION_ACTION' => 'The conversion action is missing or disabled',
+        'CLICK_CONVERSION_ALREADY_EXISTS' => 'Google already has this conversion',
+        'ORDER_ID_ALREADY_IN_USE' => 'Order ID already used',
+        self::GOOGLE_ADS_AUTH => 'Google Ads sign-in could not be refreshed',
+        self::META_ACCESS_TOKEN => 'Meta access token is invalid or expired',
+        self::ACCESS_TOKEN_INVALID => 'Access token is invalid or expired',
+        self::UNKNOWN => 'Unknown error',
+    ];
+
+    public static function label(string $code): string
+    {
+        return self::LABELS[$code] ?? 'Platform rejected events ('.$code.')';
+    }
+
     public static function isAuthCode(string $code): bool
     {
         return in_array($code, self::AUTH_CODES, true);

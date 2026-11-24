@@ -2,16 +2,23 @@ import { useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { Button, Snackbar } from '@mui/material';
 import { useApiClient } from '../../../hooks/useApiClient';
-import { resolveIssue, unresolveIssue, type IssueKey } from '../../../api/deliveryIssues';
+import { reportIssue, resolveIssue, unresolveIssue, type IssueKey } from '../../../api/deliveryIssues';
 import { withoutIssue } from '../../../lib/issueResolution';
+import { withReported } from '../../../lib/issueSupport';
 
 const ISSUE_QUERIES: QueryKey[] = [['overview'], ['analytics']];
 
 /**
- * "Mark as resolved" with an optimistic update (the card disappears at once from the
- * overview and platform pages) and an Undo snackbar. On error the cached data is restored.
+ * Issue card actions, both with optimistic updates that are rolled back on error:
+ * - "Mark as resolved": the card disappears at once, with an Undo snackbar.
+ * - "Send to support": the card switches to its calm "Sent to support" state.
  */
-export function useResolveIssue(): { resolve: (key: IssueKey) => void; pending: boolean; snackbar: ReactNode } {
+export function useResolveIssue(): {
+  resolve: (key: IssueKey) => void;
+  report: (key: IssueKey, note?: string) => void;
+  pending: boolean;
+  snackbar: ReactNode;
+} {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<{ key: IssueKey; message: string; canUndo: boolean } | null>(null);
@@ -30,6 +37,23 @@ export function useResolveIssue(): { resolve: (key: IssueKey) => void; pending: 
     onError: (error, _key, context) => {
       context?.snapshot.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data));
       setNotice({ key: _key, message: error instanceof Error ? error.message : 'Could not mark the issue as resolved', canUndo: false });
+    },
+    onSettled: refetch,
+  });
+
+  const report = useMutation({
+    mutationFn: ({ key, note }: { key: IssueKey; note?: string }) => reportIssue(apiClient, key, note),
+    onMutate: async ({ key }) => {
+      await Promise.all(ISSUE_QUERIES.map((queryKey) => queryClient.cancelQueries({ queryKey })));
+      const snapshot = ISSUE_QUERIES.flatMap((queryKey) => queryClient.getQueriesData({ queryKey }));
+      const now = new Date().toISOString();
+      ISSUE_QUERIES.forEach((queryKey) => queryClient.setQueriesData({ queryKey }, (data: unknown) => withReported(data, key, now)));
+      return { snapshot };
+    },
+    onSuccess: (_result, { key }) => setNotice({ key, message: 'Sent to support', canUndo: false }),
+    onError: (error, { key }, context) => {
+      context?.snapshot.forEach(([queryKey, data]) => queryClient.setQueryData(queryKey, data));
+      setNotice({ key, message: error instanceof Error ? error.message : 'Could not send to support', canUndo: false });
     },
     onSettled: refetch,
   });
@@ -54,5 +78,10 @@ export function useResolveIssue(): { resolve: (key: IssueKey) => void; pending: 
     />
   );
 
-  return { resolve: (key) => resolve.mutate(key), pending: resolve.isPending, snackbar };
+  return {
+    resolve: (key) => resolve.mutate(key),
+    report: (key, note) => report.mutate({ key, note }),
+    pending: resolve.isPending || report.isPending,
+    snackbar,
+  };
 }
