@@ -11,6 +11,7 @@ use App\Contracts\ReportsPartialFailure;
 use App\Data\PartialFailure;
 use App\Data\TrackingEventData;
 use App\Enums\Platform;
+use App\Enums\TrackingEventType;
 use App\Exceptions\GoogleAds\GoogleAdsAccessRevoked;
 use App\Models\ConversionActionMapping;
 use App\Models\PlatformDelivery;
@@ -61,7 +62,7 @@ final class ProcessTrackingEvent
      * domain is unknown — this is expected during the brief window between a pixel
      * firing and the shop record being seeded after install.
      */
-    public function handle(TrackingEventData $data): void
+    public function handle(TrackingEventData $data, int $verifyAttempt = 0): void
     {
         $shop = User::query()->where('name', $data->shopDomain)->first();
 
@@ -69,8 +70,46 @@ final class ProcessTrackingEvent
             return;
         }
 
+        $verifiedOrderId = null;
+
+        // The pixel endpoint is public, so a purchase is only forwarded once Shopify confirms
+        // the order (see VerifyPurchase). Value and currency then come from Shopify.
+        if ($data->event === TrackingEventType::Purchase->value) {
+            $verdict = VerifyPurchase::make()->handle($shop, $data, $verifyAttempt);
+
+            if ($verdict['action'] === 'retry') {
+                $delays = (array) config('tracking.purchase_verification.retry_delays_seconds', [60, 180]);
+                self::dispatch($data, $verifyAttempt + 1)
+                    ->delay(now()->addSeconds((int) ($delays[$verifyAttempt] ?? end($delays) ?: 180)));
+
+                return;
+            }
+
+            if ($verdict['action'] === 'reject') {
+                Log::warning('ProcessTrackingEvent: purchase rejected', [
+                    'shop_id' => $shop->getKey(),
+                    'reason' => $verdict['reason'],
+                    'order_id' => $verdict['order_id'],
+                    'ip' => $data->ip,
+                ]);
+
+                return;
+            }
+
+            if ($verdict['reason'] !== 'verified' && $verdict['reason'] !== 'verification_off') {
+                Log::info('ProcessTrackingEvent: purchase forwarded unverified', ['shop_id' => $shop->getKey(), 'reason' => $verdict['reason']]);
+            }
+
+            $data = $verdict['data'];
+            $verifiedOrderId = $verdict['verified'] ? $verdict['order_id'] : null;
+        }
+
         // Persist the raw event first — exists in DB even if all deliveries fail
         $trackingEvent = PersistTrackingEvent::make()->handle($data, $shop);
+
+        if ($verifiedOrderId !== null) {
+            $trackingEvent->forceFill(['shopify_order_id' => $verifiedOrderId, 'verified_at' => now()])->save();
+        }
 
         $integrations = $shop->platformIntegrations()
             ->with('conversionActionMappings')

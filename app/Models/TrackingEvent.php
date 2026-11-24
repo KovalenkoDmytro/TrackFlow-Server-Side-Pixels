@@ -41,6 +41,8 @@ final class TrackingEvent extends Model
         'user_agent',
         'idempotency_key',
         'occurred_at',
+        'shopify_order_id',
+        'verified_at',
     ];
 
     protected function casts(): array
@@ -48,6 +50,8 @@ final class TrackingEvent extends Model
         return [
             'value' => 'decimal:2',
             'occurred_at' => 'datetime',
+            'shopify_order_id' => 'integer',
+            'verified_at' => 'datetime',
         ];
     }
 

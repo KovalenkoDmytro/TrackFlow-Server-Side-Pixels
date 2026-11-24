@@ -6,8 +6,10 @@ namespace App\Providers;
 
 use App\Actions\Shopify\AuthenticateShopify;
 use App\Contracts\PlatformResolverContract;
+use App\Contracts\ShopifyOrderLookup;
 use App\Http\Middleware\ShopifyIframeProtection;
 use App\Services\PlatformResolver;
+use App\Services\Shopify\GraphqlOrderLookup;
 use App\Services\Shopify\LoggingApiHelper;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -53,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
         // See App\Services\Shopify\LoggingApiHelper for why.
         $this->app->bind(IApiHelper::class, LoggingApiHelper::class);
         $this->app->bind(IframeProtection::class, ShopifyIframeProtection::class);
+        $this->app->bindIf(ShopifyOrderLookup::class, GraphqlOrderLookup::class);
 
         $this->configureRateLimiting();
 

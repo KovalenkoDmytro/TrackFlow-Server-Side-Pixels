@@ -106,6 +106,30 @@ final class TrackingEventData extends Data
     }
 
     /**
+     * Copy of this event with the order total taken from Shopify (purchase verification).
+     */
+    public function withMoney(float $value, string $currency): self
+    {
+        return new self(
+            shopDomain: $this->shopDomain,
+            event: $this->event,
+            value: $value,
+            currency: $currency,
+            transactionId: $this->transactionId,
+            gclid: $this->gclid,
+            fbp: $this->fbp,
+            fbc: $this->fbc,
+            ttclid: $this->ttclid,
+            gaClientId: $this->gaClientId,
+            ip: $this->ip,
+            userAgent: $this->userAgent,
+            idempotencyKey: $this->idempotencyKey,
+            occurredAt: $this->occurredAt,
+            eventSourceUrl: $this->eventSourceUrl,
+        );
+    }
+
+    /**
      * Reduce a URL to `https://host[:port]/path`; null when it is not a plain https URL.
      *
      * Query string, fragment and credentials are always dropped (they can carry tokens or

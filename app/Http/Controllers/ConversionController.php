@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Tracking\ProcessTrackingEvent;
+use App\Actions\Tracking\VerifyPurchase;
+use App\Enums\TrackingEventType;
 use App\Http\Requests\TrackEventRequest;
 use App\Services\ConversionAuthenticator;
 use App\Services\ViewItemRateLimiter;
@@ -46,7 +48,12 @@ final class ConversionController extends Controller
             return response()->json(['ok' => true, 'rate_limited' => true], 202);
         }
 
-        ProcessTrackingEvent::dispatch($data);
+        $pending = ProcessTrackingEvent::dispatch($data);
+
+        // Give Shopify a moment to make the order readable before it is verified.
+        if ($data->event === TrackingEventType::Purchase->value && VerifyPurchase::mode() !== VerifyPurchase::MODE_OFF) {
+            $pending->delay(now()->addSeconds((int) config('tracking.purchase_verification.delay_seconds', 15)));
+        }
 
         return response()->json(['ok' => true]);
     }

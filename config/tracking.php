@@ -28,6 +28,18 @@ return [
     // Shown in support emails. Falls back to SENTRY_RELEASE, then the deployed git commit.
     'app_version' => env('APP_VERSION', env('SENTRY_RELEASE')),
 
+    // Purchases from the public pixel endpoint are checked against the shop's Shopify order
+    // before they reach Google/Meta (needs the read_orders scope). auto: verify when the scope
+    // is granted, otherwise forward as before; enforce: drop purchases that cannot be verified;
+    // off: no verification.
+    'purchase_verification' => [
+        'mode' => env('TRACKING_VERIFY_PURCHASES', 'auto'),
+        'delay_seconds' => (int) env('TRACKING_VERIFY_PURCHASES_DELAY_SECONDS', 15),
+        'retry_delays_seconds' => [60, 180],
+        'max_attempts' => 3,
+        'max_order_age_hours' => 24,
+    ],
+
     // Throttle for the public /api/conversions endpoint (requests per minute).
     'conversions_rate_limit' => [
         'per_ip_per_minute' => (int) env('CONVERSIONS_PER_IP_PER_MINUTE', 300),

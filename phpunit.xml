@@ -28,6 +28,7 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="TRACKING_VERIFY_PURCHASES" value="off"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="SHOPIFY_API_KEY" value="test-shopify-api-key"/>
         <env name="SHOPIFY_API_SECRET" value="test-shopify-api-secret"/>
