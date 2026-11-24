@@ -85,7 +85,7 @@ export function DateRangePicker({ startDate, endDate, onApply, retentionDays }: 
       <Box role="group" aria-label="Date range presets" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
         {presets.map(({ label, days }) => {
           const selected = startDate === isoDate(dateDaysAgo(days - 1)) && endDate === isoDate(today);
-          return <Button key={label} size="small" variant="text" sx={{ borderRadius: '10px', bgcolor: selected ? '#e3e3e3' : 'transparent', color: selected ? '#303030' : '#616161' }} aria-pressed={selected} onClick={() => choosePreset(days)}>{label}</Button>;
+          return <Button key={label} size="small" variant="text" sx={{ borderRadius: '8px', bgcolor: selected ? '#e3e3e3' : 'transparent', color: selected ? '#303030' : '#616161' }} aria-pressed={selected} onClick={() => choosePreset(days)}>{label}</Button>;
         })}
       </Box>
     </Stack>

@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { router } from './router/index';
+import { SEGMENTED_PILL_RADIUS, SEGMENTED_TRACK_PADDING, SEGMENTED_TRACK_RADIUS } from './components/ui/segmented';
 
 // Polaris-like tokens so the embedded app feels native in the Shopify admin
 // (Built for Shopify 4.1.1: admin-like cards, neutral primary buttons, admin background and text size).
@@ -58,6 +59,23 @@ const theme = createTheme({
       },
     },
     MuiToggleButton: { styleOverrides: { root: { textTransform: 'none' } } },
+    MuiToggleButtonGroup: {
+      styleOverrides: {
+        // Explicit px values: a unitless sx borderRadius is multiplied by shape.borderRadius,
+        // which is what made the track (16px) and the pill (6px) mismatch.
+        root: { padding: SEGMENTED_TRACK_PADDING, borderRadius: SEGMENTED_TRACK_RADIUS, backgroundColor: '#e3e3e3' },
+        grouped: {
+          border: 0,
+          borderRadius: `${SEGMENTED_PILL_RADIUS}px !important`,
+          margin: 0,
+          padding: '3px 10px',
+          color: '#616161',
+          fontSize: 12,
+          fontWeight: 550,
+          '&.Mui-selected, &.Mui-selected:hover': { backgroundColor: '#fff', color: '#303030', boxShadow: '0 1px 2px rgba(0,0,0,.15)' },
+        },
+      },
+    },
     MuiAccordion: { styleOverrides: { root: { borderRadius: 12, boxShadow: CARD_SHADOW, '&:before': { display: 'none' } } } },
     MuiSwitch: { styleOverrides: { switchBase: { '&.Mui-checked': { color: '#fff' }, '&.Mui-checked + .MuiSwitch-track': { backgroundColor: '#303030', opacity: 1 } } } },
   },
