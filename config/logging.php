@@ -1,11 +1,12 @@
 <?php
 
+use App\Logging\RedactSecretsInLogs;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
 
-return [
+$config = [
 
     /*
     |--------------------------------------------------------------------------
@@ -130,3 +131,10 @@ return [
     ],
 
 ];
+
+// Every channel masks tokens and secrets before a record is written (RedactSecretsInLogs).
+foreach ($config['channels'] as $name => $channel) {
+    $config['channels'][$name]['tap'] = [...($channel['tap'] ?? []), RedactSecretsInLogs::class];
+}
+
+return $config;
