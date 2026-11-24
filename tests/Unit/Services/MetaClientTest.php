@@ -336,6 +336,19 @@ describe('MetaClient event_time clamp', function (): void {
     });
 });
 
+it('sends the access token in the POST body, never in the URL', function (): void {
+    Http::fake(['https://graph.facebook.com/*' => Http::response(['events_received' => 1, 'fbtrace_id' => 'T'], 200)]);
+    $client = new MetaClient;
+
+    $client->testCredentials(['pixel_id' => '123', 'access_token' => 'EAAsecret1']);
+    $client->uploadConversion(['pixel_id' => '123', 'access_token' => 'EAAsecret2'], makeTrackingEventData(), new ConversionActionMapping(['external_action_id' => 'Purchase']));
+
+    $requests = Http::recorded()->map(fn (array $pair) => $pair[0]);
+    expect($requests)->toHaveCount(2)
+        ->and($requests->map(fn ($r) => $r->url())->all())->each->not->toContain('access_token')->not->toContain('EAAsecret')
+        ->and($requests->map(fn ($r) => $r->data()['access_token'])->all())->toBe(['EAAsecret1', 'EAAsecret2']);
+});
+
 describe('MetaClient::uploadConversion response handling', function (): void {
     $credentials = ['pixel_id' => '123', 'access_token' => 'secret-token-value'];
     $mapping = fn () => new ConversionActionMapping(['external_action_id' => 'Purchase']);

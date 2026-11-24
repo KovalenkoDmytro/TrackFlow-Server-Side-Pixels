@@ -12,6 +12,7 @@ use App\Data\TrackingEventData;
 use App\Models\ConversionActionMapping;
 use App\Models\PlatformIntegration;
 use Carbon\Carbon;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -100,9 +101,7 @@ final class MetaClient implements ConversionPlatformContract, ReportsDeliveryRec
             $body['test_event_code'] = $credentials['test_event_code'];
         }
 
-        $response = Http::post(self::GRAPH_API_BASE."/{$credentials['pixel_id']}/events?".http_build_query([
-            'access_token' => $credentials['access_token'],
-        ]), $body);
+        $response = $this->postEvents($credentials, $body);
 
         if (! $response->successful()) {
             throw new \RuntimeException($this->buildTestCredentialsErrorMessage($response->json(), $response->body()));
@@ -261,9 +260,7 @@ final class MetaClient implements ConversionPlatformContract, ReportsDeliveryRec
             $body['test_event_code'] = $credentials['test_event_code'];
         }
 
-        $response = Http::post(self::GRAPH_API_BASE."/{$credentials['pixel_id']}/events?".http_build_query([
-            'access_token' => $credentials['access_token'],
-        ]), $body);
+        $response = $this->postEvents($credentials, $body);
 
         if ($response->successful()) {
             return $this->recordReceipt($response->json(), $response->status());
@@ -369,5 +366,20 @@ final class MetaClient implements ConversionPlatformContract, ReportsDeliveryRec
         }
 
         return json_encode($responseBody);
+    }
+
+    /**
+     * POST to the pixel's /events edge. The access token travels in the JSON body, never in the
+     * URL, so it cannot leak through exception messages, proxy/access logs or Sentry breadcrumbs.
+     *
+     * @param  array<string, mixed>  $credentials
+     * @param  array<string, mixed>  $body
+     */
+    private function postEvents(array $credentials, array $body): Response
+    {
+        return Http::post(
+            self::GRAPH_API_BASE.'/'.rawurlencode((string) $credentials['pixel_id']).'/events',
+            [...$body, 'access_token' => (string) $credentials['access_token']],
+        );
     }
 }
