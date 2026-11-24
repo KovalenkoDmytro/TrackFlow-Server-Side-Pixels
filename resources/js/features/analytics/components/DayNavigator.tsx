@@ -38,13 +38,13 @@ export function DayNavigator({ date, onChange, retentionDays }: DayNavigatorProp
 
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, p: .5, border: '1px solid #e5ebe4', borderRadius: '12px', bgcolor: '#fff' }}>
-        <IconButton size="small" aria-label="Previous day" onClick={() => onChange(shiftDate(date, -1))} disabled={date <= earliestDate} sx={{ color: '#64806a' }}><ChevronLeftRoundedIcon fontSize="small" /></IconButton>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, p: .5, border: '1px solid #d4d4d4', borderRadius: '12px', bgcolor: '#fff' }}>
+        <IconButton size="small" aria-label="Previous day" onClick={() => onChange(shiftDate(date, -1))} disabled={date <= earliestDate} sx={{ color: '#616161' }}><ChevronLeftRoundedIcon fontSize="small" /></IconButton>
         <CalendarDatePicker value={date} onChange={onChange} retentionDays={retentionDays} />
-        <IconButton size="small" aria-label="Next day" onClick={() => onChange(shiftDate(date, 1))} disabled={date >= today} sx={{ color: '#64806a' }}><ChevronRightRoundedIcon fontSize="small" /></IconButton>
+        <IconButton size="small" aria-label="Next day" onClick={() => onChange(shiftDate(date, 1))} disabled={date >= today} sx={{ color: '#616161' }}><ChevronRightRoundedIcon fontSize="small" /></IconButton>
       </Box>
-      <Button size="small" variant="text" aria-pressed={isToday} onClick={() => onChange(today)} disabled={isToday} sx={{ borderRadius: '10px', px: 1.5, bgcolor: isToday ? '#eaf3e7' : 'transparent', '&.Mui-disabled': { color: '#487554' } }}>Today</Button>
-      <Button size="small" variant="text" aria-pressed={isYesterday} onClick={() => onChange(yesterday)} disabled={isYesterday || yesterday < earliestDate} sx={{ borderRadius: '10px', px: 1.5, bgcolor: isYesterday ? '#eaf3e7' : 'transparent', '&.Mui-disabled': { color: isYesterday ? '#487554' : undefined } }}>Yesterday</Button>
+      <Button size="small" variant="text" aria-pressed={isToday} onClick={() => onChange(today)} disabled={isToday} sx={{ borderRadius: '10px', px: 1.5, bgcolor: isToday ? '#e3e3e3' : 'transparent', '&.Mui-disabled': { color: '#303030' } }}>Today</Button>
+      <Button size="small" variant="text" aria-pressed={isYesterday} onClick={() => onChange(yesterday)} disabled={isYesterday || yesterday < earliestDate} sx={{ borderRadius: '10px', px: 1.5, bgcolor: isYesterday ? '#e3e3e3' : 'transparent', '&.Mui-disabled': { color: isYesterday ? '#303030' : undefined } }}>Yesterday</Button>
     </Box>
   );
 }

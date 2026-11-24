@@ -2,7 +2,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import DonutLargeRoundedIcon from '@mui/icons-material/DonutLargeRounded';
 import type { EventCount } from '../../../types/api';
 
-const COLORS = ['#326a4b', '#75a878', '#b5ce9e', '#d6c58c', '#9bb6aa', '#d49f7f', '#738e79', '#c4d6bd'];
+const COLORS = ['#2c6ecb', '#4b8fe2', '#80b3f0', '#e5a000', '#29845a', '#8a8a8a', '#b4c9e8', '#d4d4d4'];
 
 interface EventCountsChartProps {
   counts: EventCount[];
@@ -14,7 +14,7 @@ export function EventCountsChart({ counts, total, loading }: EventCountsChartPro
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={28} /></Box>;
 
   const rows = [...counts].filter((row) => row.count > 0).sort((a, b) => b.count - a.count);
-  if (rows.length === 0 || total <= 0) return <Box sx={{ py: 8, px: 3, textAlign: 'center' }}><Box sx={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: '18px', bgcolor: '#eff5ed', color: '#6c9875', mx: 'auto', mb: 2 }}><DonutLargeRoundedIcon /></Box><Typography sx={{ fontWeight: 750 }}>No events for this period</Typography><Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>Choose another date or date range to see your event breakdown.</Typography></Box>;
+  if (rows.length === 0 || total <= 0) return <Box sx={{ py: 8, px: 3, textAlign: 'center' }}><Box sx={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: '18px', bgcolor: '#f1f1f1', color: '#8a8a8a', mx: 'auto', mb: 2 }}><DonutLargeRoundedIcon /></Box><Typography sx={{ fontWeight: 750 }}>No events for this period</Typography><Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>Choose another date or date range to see your event breakdown.</Typography></Box>;
 
   let offset = 0;
   const stops = rows.map((row, index) => {
