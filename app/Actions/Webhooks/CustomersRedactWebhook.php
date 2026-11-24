@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Webhooks;
 
+use App\Actions\Gdpr\RedactCustomerData;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -12,10 +14,9 @@ use Lorisleiva\Actions\Concerns\AsController;
 /**
  * Handles the mandatory GDPR "customers/redact" webhook.
  *
- * The app stores no shopper-identifying PII (no customer_id, email, phone,
- * name, or address anywhere in the schema — see tracking_events table).
- * There is therefore nothing per-customer to redact. The request is logged
- * for audit purposes and acknowledged with a 200 response.
+ * The app stores no customer id, email, phone, name or address, but tracking rows hold
+ * personal identifiers (IP, user agent, click ids, cookies, order id). RedactCustomerData
+ * (queued) anonymises the rows linked to `orders_to_redact`.
  *
  * HMAC verification is handled upstream by the `auth.webhook` middleware
  * (Osiset\ShopifyApp\Http\Middleware\AuthWebhook) — this Action only runs
@@ -35,6 +36,13 @@ final class CustomersRedactWebhook
         Log::info('Received customers/redact webhook', [
             'shop_domain' => $shopDomain,
         ]);
+
+        $shop = is_string($shopDomain) ? User::query()->where('name', $shopDomain)->first() : null;
+        $orders = $request->input('orders_to_redact');
+
+        if ($shop instanceof User && is_array($orders) && $orders !== []) {
+            RedactCustomerData::dispatch((int) $shop->getKey(), array_values($orders));
+        }
 
         return response('', 200);
     }
