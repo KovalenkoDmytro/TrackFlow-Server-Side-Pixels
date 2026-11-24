@@ -37,7 +37,7 @@ export function IssueCard({ issue, context = 'overview', compact = false }: Issu
     : { label: `View ${label} details`, to: `/analytics/platform/${issue.platform}` };
 
   return (
-    <Card sx={{ p: 2, boxShadow: 'inset 0 0 0 1px #fdb5b5, 0 1px 0 rgba(26,26,26,.07)' }}>
+    <Card sx={{ p: 2, '&::after': { boxShadow: 'inset 0 0 0 1px #fdb5b5' } }}>
       <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
         <ErrorRoundedIcon sx={{ color: 'error.main', fontSize: 20, mt: '1px' }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>

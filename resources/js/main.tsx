@@ -9,6 +9,11 @@ import { SEGMENTED_PILL_RADIUS, SEGMENTED_TRACK_PADDING, SEGMENTED_TRACK_RADIUS 
 // Polaris-like tokens so the embedded app feels native in the Shopify admin
 // (Built for Shopify 4.1.1: admin-like cards, neutral primary buttons, admin background and text size).
 const CARD_SHADOW = '0 1px 0 0 rgba(26,26,26,.07), inset 0 1px 0 0 rgba(204,204,204,.5), inset 0 -1px 0 0 rgba(0,0,0,.17), inset -1px 0 0 0 rgba(0,0,0,.13), inset 1px 0 0 0 rgba(0,0,0,.13)';
+const CARD_EDGE = {
+  position: 'relative' as const,
+  boxShadow: '0 1px 0 0 rgba(26,26,26,.07)',
+  '&::after': { content: '""', position: 'absolute' as const, inset: 0, borderRadius: 'inherit', boxShadow: CARD_SHADOW, pointerEvents: 'none' as const, zIndex: 1 },
+};
 
 const theme = createTheme({
   palette: {
@@ -37,8 +42,10 @@ const theme = createTheme({
   },
   components: {
     MuiCssBaseline: { styleOverrides: { body: { backgroundColor: '#f1f1f1', WebkitFontSmoothing: 'antialiased' } } },
-    MuiCard: { styleOverrides: { root: { borderRadius: 12, border: 0, boxShadow: CARD_SHADOW } } },
-    MuiPaper: { styleOverrides: { outlined: { border: 0, boxShadow: CARD_SHADOW } } },
+    // The card edge is drawn by an overlay above the content: with an inset box-shadow alone,
+    // full-bleed children (table header rows) paint over the edge and look glued to the side.
+    MuiCard: { styleOverrides: { root: { borderRadius: 12, border: 0, ...CARD_EDGE } } },
+    MuiPaper: { styleOverrides: { outlined: { border: 0, ...CARD_EDGE } } },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
