@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UseCloudflareClientIp;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Trusted proxies come from config/trustedproxy.php (loopback by default).
         $middleware->append(UseCloudflareClientIp::class);
+        $middleware->append(SecurityHeaders::class);
 
         $middleware->validateCsrfTokens(except: [
             'webhook/*',
