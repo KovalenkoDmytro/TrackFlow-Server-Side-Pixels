@@ -205,7 +205,7 @@ return [
     |
     */
 
-    'api_scopes' => env('SHOPIFY_API_SCOPES', 'read_pixels,write_pixels,read_customer_events'),
+    'api_scopes' => env('SHOPIFY_API_SCOPES', 'read_pixels,write_pixels,read_customer_events,read_orders'),
 
     /*
     |--------------------------------------------------------------------------
