@@ -17,8 +17,10 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *
  * With read_orders granted, a purchase is only forwarded when its order exists in that shop,
  * was created recently and was not already counted; value and currency are taken from Shopify.
- * Without the scope, tracking.purchase_verification decides: "auto" forwards as before,
- * "enforce" drops the purchase, "off" skips verification entirely.
+ * Without the scope (or without an order id, or when Shopify keeps failing),
+ * tracking.purchase_verification decides: "auto" forwards unverified as before, "enforce"
+ * drops the purchase, "off" skips verification entirely. Forged order ids, stale orders and
+ * replays are dropped in both auto and enforce mode.
  *
  * @phpstan-type Verdict array{action: 'deliver'|'retry'|'reject', data: TrackingEventData, order_id: int|null, verified: bool, reason: string}
  */
@@ -78,7 +80,12 @@ final class VerifyPurchase
 
         $orderId = self::orderId($data->transactionId);
         if ($orderId === null) {
-            return $this->verdict('reject', $data, reason: 'no_order_id');
+            // The pixel falls back to the checkout token when Shopify gives no order id yet; such a
+            // purchase cannot be checked. Auto mode forwards it unverified rather than losing a
+            // real sale; enforce mode drops it.
+            return $mode === self::MODE_ENFORCE
+                ? $this->verdict('reject', $data, reason: 'no_order_id')
+                : $this->verdict('deliver', $data, reason: 'no_order_id');
         }
 
         $result = $this->orders->find($shop, $orderId);

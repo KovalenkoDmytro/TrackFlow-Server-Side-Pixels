@@ -129,11 +129,20 @@ it('retries later while the order is not visible yet', function (): void {
     Queue::assertPushed(JobDecorator::class, fn ($job) => $job->getParameters()[1] === 1 && $job->delay !== null);
 });
 
-it('drops purchases without an order id, for orders older than 24h and replays of an order', function (): void {
+it('forwards a purchase without an order id unverified in auto mode, and drops it in enforce mode', function (): void {
+    $this->postJson('/api/conversions', purchase(['transaction_id' => 'c1-checkout-token', 'idempotency_key' => 'a']))->assertOk();
+    expect(TrackingEvent::query()->sole()->verified_at)->toBeNull()
+        ->and($this->orders->calls)->toBe(0);
+
+    config(['tracking.purchase_verification.mode' => 'enforce']);
+    $this->postJson('/api/conversions', purchase(['transaction_id' => 'c1-checkout-token-2', 'idempotency_key' => 'b']))->assertOk();
+    expect(TrackingEvent::query()->count())->toBe(1);
+});
+
+it('drops purchases for orders older than 24h and replays of an order', function (): void {
     $this->orders->orders[5551234] = realOrder();
     $this->orders->orders[777] = realOrder(777, createdAt: '2026-11-20 10:00:00');
 
-    $this->postJson('/api/conversions', purchase(['transaction_id' => 'c1-checkout-token']))->assertOk();
     $this->postJson('/api/conversions', purchase(['transaction_id' => '777']))->assertOk();
     expect(TrackingEvent::query()->count())->toBe(0);
 
