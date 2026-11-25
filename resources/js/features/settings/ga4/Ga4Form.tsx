@@ -14,7 +14,8 @@ import type { Ga4FormData } from '../../../types/api';
 
 const schema = z.object({
   measurement_id: z.string().min(1, 'Required'),
-  api_secret: z.string().min(1, 'Required'),
+  // Required only when no secret is stored yet (checked in onSubmit); blank keeps the stored one.
+  api_secret: z.string(),
   property_id: z.string(),
   oauth_client_id: z.string(),
   oauth_client_secret: z.string(),
@@ -66,7 +67,8 @@ export function Ga4Form({ onDisconnect, isDisconnecting }: Ga4FormProps) {
     if (creds || Object.keys(draft).length > 0) {
       form.reset({
         measurement_id: creds?.measurement_id ?? '',
-        api_secret: creds?.api_secret ?? '',
+        // The API secret is write-only — the API never returns the stored value.
+        api_secret: '',
         property_id: creds?.property_id || draft.property_id || '',
         // OAuth secrets are write-only — the API never returns the stored value,
         // so these always start empty (a local unsaved draft may still prefill them).
@@ -78,6 +80,7 @@ export function Ga4Form({ onDisconnect, isDisconnecting }: Ga4FormProps) {
   }, [query.data, form]);
 
   const credentials = query.data?.credentials;
+  const hasApiSecret = credentials?.has_api_secret ?? false;
   const hasOauthClientId = credentials?.has_oauth_client_id ?? false;
   const hasOauthClientSecret = credentials?.has_oauth_client_secret ?? false;
   const hasOauthRefreshToken = credentials?.has_oauth_refresh_token ?? false;
@@ -98,6 +101,10 @@ export function Ga4Form({ onDisconnect, isDisconnecting }: Ga4FormProps) {
 
   async function onSubmit(data: Ga4FormData) {
     setSuccessMessage(null);
+    if (!hasApiSecret && data.api_secret.trim() === '') {
+      form.setError('api_secret', { message: 'Required' });
+      return;
+    }
     try {
       await saveMutation.mutateAsync(data);
       setSuccessMessage('GA4 connected. Event mappings are being configured in the background.');
@@ -171,14 +178,24 @@ export function Ga4Form({ onDisconnect, isDisconnecting }: Ga4FormProps) {
             />
             <TextField
               {...form.register('api_secret')}
-              label="API Secret"
+              type="password"
+              autoComplete="off"
+              label={
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                  API Secret
+                  {hasApiSecret && <Chip label="Set" color="success" size="small" sx={{ height: 18 }} />}
+                </Box>
+              }
+              placeholder={hasApiSecret ? '••••••••' : undefined}
               helperText={
                 form.formState.errors.api_secret?.message ??
-                'Create one in GA4: Admin → Data Streams → your stream → Measurement Protocol API secrets'
+                (hasApiSecret
+                  ? 'Already set — leave blank to keep the current value, or enter a new one to replace it.'
+                  : 'Create one in GA4: Admin → Data Streams → your stream → Measurement Protocol API secrets')
               }
               error={!!form.formState.errors.api_secret}
               fullWidth
-              required
+              required={!hasApiSecret}
             />
             <Typography variant="body2" color="text.secondary">
               Optional: provide Property ID and all three OAuth fields to automatically create Key Events. Follow steps 2–6 in the setup guide above.

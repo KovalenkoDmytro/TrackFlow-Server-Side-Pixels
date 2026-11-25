@@ -208,7 +208,9 @@ export interface GoogleAdsFormData {
 
 export interface Ga4Credentials {
   measurement_id: string;
+  /** Always '' — the stored secret is write-only; see has_api_secret. */
   api_secret: string;
+  has_api_secret: boolean;
   property_id: string;
   oauth_client_id: string;
   oauth_client_secret: string;

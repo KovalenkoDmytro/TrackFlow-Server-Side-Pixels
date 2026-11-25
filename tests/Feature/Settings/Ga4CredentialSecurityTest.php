@@ -202,3 +202,57 @@ describe('POST /api/settings/ga4 — write-only update semantics', function (): 
         expect($stored['oauth']['client_secret'])->toBe('brand-new-client-secret');
     });
 });
+
+describe('GA4 api_secret is write-only', function (): void {
+    beforeEach(function (): void {
+        $this->shop = User::factory()->create();
+        Queue::fake();
+        Http::fake(['https://www.google-analytics.com/debug/mp/collect*' => Http::response(['validationMessages' => []], 200)]);
+    });
+
+    function ga4WithSecret(User $shop): PlatformIntegration
+    {
+        return PlatformIntegration::query()->create([
+            'user_id' => $shop->getKey(),
+            'platform' => Platform::GoogleAnalytics4,
+            'active' => true,
+            'credentials' => json_encode(['measurement_id' => 'G-ABC123', 'api_secret' => 'stored-api-secret']),
+            'settings' => [],
+        ]);
+    }
+
+    it('never returns the stored api_secret, only has_api_secret', function (): void {
+        ga4WithSecret($this->shop);
+
+        $response = $this->withToken($this->shopifySessionToken($this->shop))->getJson('/api/settings/ga4')->assertOk();
+
+        expect($response->getContent())->not->toContain('stored-api-secret');
+        $response->assertJson(['credentials' => ['api_secret' => '', 'has_api_secret' => true]]);
+    });
+
+    it('keeps the stored api_secret when resaved blank', function (): void {
+        $integration = ga4WithSecret($this->shop);
+
+        $this->withToken($this->shopifySessionToken($this->shop))->postJson('/api/settings/ga4', [
+            'measurement_id' => 'G-ABC123', 'api_secret' => '',
+        ])->assertOk();
+
+        expect(json_decode($integration->fresh()->credentials, true)['api_secret'])->toBe('stored-api-secret');
+    });
+
+    it('replaces the stored api_secret with a new value', function (): void {
+        $integration = ga4WithSecret($this->shop);
+
+        $this->withToken($this->shopifySessionToken($this->shop))->postJson('/api/settings/ga4', [
+            'measurement_id' => 'G-ABC123', 'api_secret' => 'brand-new-secret',
+        ])->assertOk();
+
+        expect(json_decode($integration->fresh()->credentials, true)['api_secret'])->toBe('brand-new-secret');
+    });
+
+    it('requires an api_secret on first connect', function (): void {
+        $this->withToken($this->shopifySessionToken($this->shop))->postJson('/api/settings/ga4', [
+            'measurement_id' => 'G-ABC123', 'api_secret' => '',
+        ])->assertStatus(422)->assertJsonValidationErrors('api_secret');
+    });
+});

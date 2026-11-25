@@ -26,7 +26,7 @@ final class Ga4ApiController extends Controller
      *
      * Returns an object with:
      *   - connected: bool — whether an active integration exists
-     *   - credentials: decrypted credential fields (empty strings when not connected)
+     *   - credentials: non-secret fields plus has_* flags; secrets are never returned
      */
     public function show(Request $request): JsonResponse
     {
@@ -42,6 +42,7 @@ final class Ga4ApiController extends Controller
                 'credentials' => [
                     'measurement_id' => '',
                     'api_secret' => '',
+                    'has_api_secret' => false,
                     'property_id' => '',
                     'oauth_client_id' => '',
                     'oauth_client_secret' => '',
@@ -61,9 +62,10 @@ final class Ga4ApiController extends Controller
             'connected' => (bool) $integration->active,
             'credentials' => [
                 'measurement_id' => $raw['measurement_id'] ?? '',
-                'api_secret' => $raw['api_secret'] ?? '',
+                // Secrets are write-only: never echo the stored value back to the browser.
+                'api_secret' => '',
+                'has_api_secret' => ! empty($raw['api_secret'] ?? null),
                 'property_id' => $raw['property_id'] ?? '',
-                // OAuth secrets are write-only: never echo the stored value back to the browser.
                 'oauth_client_id' => '',
                 'oauth_client_secret' => '',
                 'oauth_refresh_token' => '',
@@ -86,7 +88,7 @@ final class Ga4ApiController extends Controller
     {
         $validated = $request->validate([
             'measurement_id' => ['required', 'string'],
-            'api_secret' => ['required', 'string'],
+            'api_secret' => ['nullable', 'string'],
             'property_id' => ['nullable', 'string', 'regex:/^\d+$/'],
             'oauth_client_id' => ['nullable', 'string'],
             'oauth_client_secret' => ['nullable', 'string'],
@@ -103,9 +105,18 @@ final class Ga4ApiController extends Controller
             ? json_decode($existing->credentials, true)
             : [];
 
+        // Blank keeps the stored secret (the browser never receives it); a new value replaces it.
+        $apiSecret = self::resolveSensitiveField($validated['api_secret'] ?? null, $existingRaw['api_secret'] ?? null);
+        if ($apiSecret === '') {
+            return response()->json([
+                'message' => 'The api secret field is required.',
+                'errors' => ['api_secret' => ['The api secret field is required.']],
+            ], 422);
+        }
+
         $credentials = [
             'measurement_id' => trim($validated['measurement_id']),
-            'api_secret' => trim($validated['api_secret']),
+            'api_secret' => $apiSecret,
         ];
 
         if (! empty($validated['property_id'])) {
