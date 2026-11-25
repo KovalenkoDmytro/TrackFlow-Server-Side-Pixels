@@ -31,7 +31,7 @@ it('ignores CF-Connecting-IP from an untrusted address', function (): void {
 
 it('uses CF-Connecting-IP behind the local proxy, not the client-controlled X-Forwarded-For', function (): void {
     $data = ipFrom($this, '127.0.0.1', [
-        'X-Forwarded-For' => '6.6.6.6, 203.0.113.9',
+        'X-Forwarded-For' => '6.6.6.6',
         'CF-Connecting-IP' => '203.0.113.9',
         'X-Forwarded-Proto' => 'https',
     ]);
